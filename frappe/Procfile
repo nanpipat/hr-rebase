@@ -1,0 +1,5 @@
+web: bench serve --port 8000
+scheduler: bench schedule
+worker_short: bench worker --queue short
+worker_long: bench worker --queue long
+worker_default: bench worker --queue default

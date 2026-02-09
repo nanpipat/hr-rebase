@@ -1,0 +1,11 @@
+[mysqld]
+character-set-client-handshake = FALSE
+character-set-server = utf8mb4
+collation-server = utf8mb4_unicode_ci
+innodb-file-format = Barracuda
+innodb-file-per-table = 1
+innodb-large-prefix = 1
+default-authentication-plugin = mysql_native_password
+
+[mysql]
+default-character-set = utf8mb4

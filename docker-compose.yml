@@ -1,0 +1,135 @@
+version: "3.8"
+
+services:
+  # --- Database ---
+  mariadb:
+    image: mariadb:10.6.18
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MARIADB_DATABASE:-frappe}
+      MYSQL_USER: ${MARIADB_USER:-frappe}
+      MYSQL_PASSWORD: ${MARIADB_PASSWORD}
+    volumes:
+      - mariadb_data:/var/lib/mysql
+      - ./frappe/mariadb.cnf:/etc/mysql/conf.d/frappe.cnf:ro
+    networks:
+      - hr_network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MARIADB_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # --- Cache & Queue ---
+  redis:
+    image: redis:7.2.5-alpine
+    restart: unless-stopped
+    networks:
+      - hr_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # --- Frappe HR Core ---
+  frappe:
+    build:
+      context: ./frappe
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      FRAPPE_SITE_NAME: ${FRAPPE_SITE_NAME:-hr.localhost}
+      FRAPPE_ADMIN_PASSWORD: ${FRAPPE_ADMIN_PASSWORD:-admin}
+      MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD}
+      DEFAULT_COMPANY_NAME: ${DEFAULT_COMPANY_NAME:-My Company}
+      DEFAULT_COMPANY_ABBR: ${DEFAULT_COMPANY_ABBR:-MC}
+      DEFAULT_COMPANY_COUNTRY: ${DEFAULT_COMPANY_COUNTRY:-Thailand}
+    volumes:
+      - frappe_sites:/home/frappe/hr-bench/sites
+      - frappe_logs:/home/frappe/hr-bench/logs
+    depends_on:
+      mariadb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - hr_network
+
+  # --- BFF Database ---
+  postgres:
+    image: postgres:16.3-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${BFF_DB_NAME:-bff}
+      POSTGRES_USER: ${BFF_DB_USER:-bff}
+      POSTGRES_PASSWORD: ${BFF_DB_PASSWORD:-bff_secret}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - hr_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${BFF_DB_USER:-bff}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # --- Backend for Frontend ---
+  bff:
+    build:
+      context: ./bff
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      BFF_PORT: ${BFF_PORT:-8080}
+      BFF_FRAPPE_URL: ${BFF_FRAPPE_URL:-http://frappe:8000}
+      BFF_FRAPPE_API_KEY: ${BFF_FRAPPE_API_KEY}
+      BFF_FRAPPE_API_SECRET: ${BFF_FRAPPE_API_SECRET}
+      BFF_DATABASE_URL: ${BFF_DATABASE_URL:-postgres://bff:bff_secret@postgres:5432/bff?sslmode=disable}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRY_HOURS: ${JWT_EXPIRY_HOURS:-24}
+    depends_on:
+      frappe:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+    networks:
+      - hr_network
+
+  # --- Frontend ---
+  web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:5009/api}
+    depends_on:
+      - bff
+    networks:
+      - hr_network
+
+  # --- Reverse Proxy ---
+  nginx:
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "5009:80"
+    depends_on:
+      - web
+      - bff
+    networks:
+      - hr_network
+
+volumes:
+  mariadb_data:
+  frappe_sites:
+  frappe_logs:
+  postgres_data:
+
+networks:
+  hr_network:
+    driver: bridge

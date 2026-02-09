@@ -1,0 +1,30 @@
+# Environment
+.env
+*.env.local
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Node
+web/node_modules/
+web/.next/
+web/out/
+
+# Go
+bff/tmp/
+bff/vendor/
+
+# Frappe
+frappe/sites/*/
+!frappe/sites/common_site_config.json
+frappe/logs/
+
+# Docker
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
