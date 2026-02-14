@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 
 	"hr-platform/bff/internal/client"
@@ -9,6 +10,15 @@ import (
 
 	"github.com/labstack/echo/v4"
 )
+
+// frappeHTTPError returns an echo HTTP error that surfaces the Frappe error message if available.
+func frappeHTTPError(err error, fallback string) *echo.HTTPError {
+	var fe *client.FrappeError
+	if errors.As(err, &fe) {
+		return echo.NewHTTPError(http.StatusBadGateway, fe.Message)
+	}
+	return echo.NewHTTPError(http.StatusBadGateway, fallback)
+}
 
 type LeaveHandler struct {
 	frappe *client.FrappeClient
@@ -34,7 +44,7 @@ func (h *LeaveHandler) Create(c echo.Context) error {
 	}
 	_, err := h.frappe.CallMethod("hr_core_ext.api.leave.get_leave_balance", params)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusBadGateway, "failed to verify leave balance")
+		return frappeHTTPError(err, "failed to verify leave balance")
 	}
 
 	// Create leave application via Frappe
@@ -46,13 +56,13 @@ func (h *LeaveHandler) Create(c echo.Context) error {
 		"reason":      req.Reason,
 	}
 
-	_, err = h.frappe.CallMethod("hr_core_ext.api.leave.create_leave_application", payload)
+	data, err := h.frappe.CallMethodPost("hr_core_ext.api.leave.create_leave_application", payload)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusBadGateway, "failed to create leave application")
+		return frappeHTTPError(err, "failed to create leave application")
 	}
 
-	return c.JSON(http.StatusCreated, map[string]string{
-		"message": "leave application created",
+	return c.JSON(http.StatusCreated, map[string]interface{}{
+		"data": json.RawMessage(data),
 	})
 }
 
@@ -70,7 +80,7 @@ func (h *LeaveHandler) List(c echo.Context) error {
 
 	data, err := h.frappe.CallMethod("hr_core_ext.api.leave.get_leave_applications", params)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusBadGateway, "failed to fetch leave applications")
+		return frappeHTTPError(err, "failed to fetch leave applications")
 	}
 
 	return c.JSON(http.StatusOK, map[string]interface{}{
@@ -98,12 +108,80 @@ func (h *LeaveHandler) Approve(c echo.Context) error {
 		"status":   req.Status,
 	}
 
-	_, err := h.frappe.CallMethod("hr_core_ext.api.leave.approve_leave_application", params)
+	_, err := h.frappe.CallMethodPost("hr_core_ext.api.leave.approve_leave_application", params)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusBadGateway, "failed to update leave status")
+		return frappeHTTPError(err, "failed to update leave status")
 	}
 
 	return c.JSON(http.StatusOK, map[string]string{
 		"message": "leave application " + req.Status,
+	})
+}
+
+// Update edits an open leave application (before approval).
+func (h *LeaveHandler) Update(c echo.Context) error {
+	leaveID := c.Param("id")
+
+	var req model.UpdateLeaveRequest
+	if err := c.Bind(&req); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid request body")
+	}
+
+	params := map[string]string{"leave_id": leaveID}
+	if req.LeaveType != nil {
+		params["leave_type"] = *req.LeaveType
+	}
+	if req.FromDate != nil {
+		params["from_date"] = *req.FromDate
+	}
+	if req.ToDate != nil {
+		params["to_date"] = *req.ToDate
+	}
+	if req.Reason != nil {
+		params["reason"] = *req.Reason
+	}
+
+	data, err := h.frappe.CallMethodPost("hr_core_ext.api.leave.update_leave_application", params)
+	if err != nil {
+		return frappeHTTPError(err, "failed to update leave application")
+	}
+
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"data": json.RawMessage(data),
+	})
+}
+
+// Cancel cancels an open leave application.
+func (h *LeaveHandler) Cancel(c echo.Context) error {
+	leaveID := c.Param("id")
+
+	data, err := h.frappe.CallMethodPost("hr_core_ext.api.leave.cancel_leave_application", map[string]string{
+		"leave_id": leaveID,
+	})
+	if err != nil {
+		return frappeHTTPError(err, "failed to cancel leave application")
+	}
+
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"data": json.RawMessage(data),
+	})
+}
+
+// Balance returns leave balance for the current user.
+func (h *LeaveHandler) Balance(c echo.Context) error {
+	employeeID := c.Get("employee_id").(string)
+	if employeeID == "" {
+		return echo.NewHTTPError(http.StatusBadRequest, "employee not linked to this user")
+	}
+
+	data, err := h.frappe.CallMethod("hr_core_ext.api.leave.get_leave_allocations", map[string]string{
+		"employee_id": employeeID,
+	})
+	if err != nil {
+		return frappeHTTPError(err, "failed to fetch leave balance")
+	}
+
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"data": json.RawMessage(data),
 	})
 }

@@ -10,6 +10,60 @@ import (
 	"time"
 )
 
+// FrappeError represents an error returned by the Frappe API with a human-readable message.
+type FrappeError struct {
+	StatusCode int
+	Message    string
+	RawBody    string
+}
+
+func (e *FrappeError) Error() string {
+	return e.Message
+}
+
+// parseFrappeError extracts a human-readable message from a Frappe error response.
+func parseFrappeError(statusCode int, body []byte) *FrappeError {
+	fe := &FrappeError{StatusCode: statusCode, RawBody: string(body)}
+
+	var raw struct {
+		ServerMessages string `json:"_server_messages"`
+		Exception      string `json:"exception"`
+	}
+	if err := json.Unmarshal(body, &raw); err != nil {
+		fe.Message = fmt.Sprintf("frappe error (status %d)", statusCode)
+		return fe
+	}
+
+	// _server_messages is a JSON array of JSON strings
+	if raw.ServerMessages != "" {
+		var msgs []string
+		if err := json.Unmarshal([]byte(raw.ServerMessages), &msgs); err == nil && len(msgs) > 0 {
+			var msgObj struct {
+				Message string `json:"message"`
+			}
+			if err := json.Unmarshal([]byte(msgs[0]), &msgObj); err == nil && msgObj.Message != "" {
+				fe.Message = msgObj.Message
+				return fe
+			}
+		}
+	}
+
+	// Fallback to exception string
+	if raw.Exception != "" {
+		// Extract message after the last colon (e.g. "frappe.exceptions.ValidationError: Some message")
+		parts := strings.SplitN(raw.Exception, ": ", 2)
+		if len(parts) == 2 {
+			fe.Message = parts[1]
+			return fe
+		}
+		fe.Message = raw.Exception
+		return fe
+	}
+
+	fe.Message = fmt.Sprintf("frappe error (status %d)", statusCode)
+	return fe
+}
+
 type FrappeClient struct {
 	BaseURL    string
 	APIKey     string
@@ -51,7 +105,7 @@ func (c *FrappeClient) doRequest(method, path string, body io.Reader) ([]byte, e
 	}
 
 	if resp.StatusCode >= 400 {
-		return nil, fmt.Errorf("frappe API error (status %d): %s", resp.StatusCode, string(respBody))
+		return nil, parseFrappeError(resp.StatusCode, respBody)
 	}
 
 	return respBody, nil
@@ -119,7 +173,7 @@ func (c *FrappeClient) CreateCompany(name, abbr, country string) (string, error)
 		"country":      country,
 	}
 
-	result, err := c.CallMethod("hr_core_ext.api.company.create_company", payload)
+	result, err := c.CallMethodPost("hr_core_ext.api.company.create_company", payload)
 	if err != nil {
 		return "", fmt.Errorf("creating Frappe company: %w", err)
 	}
@@ -143,7 +197,7 @@ func (c *FrappeClient) CreateEmployee(employeeName, company string) (string, err
 		"company":       company,
 	}
 
-	result, err := c.CallMethod("hr_core_ext.api.company.create_employee", payload)
+	result, err := c.CallMethodPost("hr_core_ext.api.company.create_employee", payload)
 	if err != nil {
 		return "", fmt.Errorf("creating Frappe employee: %w", err)
 	}
@@ -155,6 +209,48 @@ func (c *FrappeClient) CreateEmployee(employeeName, company string) (string, err
 		return "", fmt.Errorf("decoding employee response: %w", err)
 	}
 	return resp.EmployeeID, nil
+}
+
+// CallMethodPost calls a whitelisted Frappe method via POST (for mutations).
+func (c *FrappeClient) CallMethodPost(method string, params map[string]string) (json.RawMessage, error) {
+	payload := url.Values{}
+	for k, v := range params {
+		payload.Set(k, v)
+	}
+
+	reqURL := fmt.Sprintf("%s/api/method/%s", c.BaseURL, method)
+	req, err := http.NewRequest("POST", reqURL, strings.NewReader(payload.Encode()))
+	if err != nil {
+		return nil, fmt.Errorf("creating request: %w", err)
+	}
+
+	req.Header.Set("Authorization", fmt.Sprintf("token %s:%s", c.APIKey, c.APISecret))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := c.HTTPClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("executing request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("reading response: %w", err)
+	}
+
+	if resp.StatusCode >= 400 {
+		return nil, parseFrappeError(resp.StatusCode, respBody)
+	}
+
+	var result struct {
+		Message json.RawMessage `json:"message"`
+	}
+	if err := json.Unmarshal(respBody, &result); err != nil {
+		return nil, fmt.Errorf("decoding response: %w", err)
+	}
+
+	return result.Message, nil
 }
 
 // GetResource fetches a list of Frappe resources.

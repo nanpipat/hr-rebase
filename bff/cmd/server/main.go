@@ -76,19 +76,42 @@ func main() {
 	api := e.Group("/api", middleware.JWTMiddleware(cfg.JWTSecret))
 	api.GET("/me", authHandler.Me)
 	api.POST("/auth/logout", authHandler.Logout)
+
+	// Employee routes (all roles, self-filtered in handlers)
 	api.GET("/employees", employeeHandler.List)
 	api.GET("/employees/:id", employeeHandler.Get)
+	api.GET("/employees/:id/full", employeeHandler.GetFull)
+	api.GET("/employees/:id/leave", employeeHandler.GetLeave)
+	api.GET("/employees/:id/attendance", employeeHandler.GetAttendance)
+	api.GET("/employees/:id/documents", employeeHandler.GetDocuments)
+	api.PUT("/employees/:id/contact", employeeHandler.UpdateContact)
+	api.GET("/employees/:id/timeline", employeeHandler.GetTimeline)
+
+	// Leave routes (all roles)
 	api.POST("/leaves", leaveHandler.Create)
 	api.GET("/leaves", leaveHandler.List)
+	api.GET("/leaves/balance", leaveHandler.Balance)
+	api.PUT("/leaves/:id", leaveHandler.Update)
+	api.DELETE("/leaves/:id", leaveHandler.Cancel)
+
+	// Attendance routes (all roles)
 	api.GET("/attendance/me", attendanceHandler.Me)
+	api.POST("/attendance/requests", attendanceHandler.CreateRequest)
+	api.GET("/attendance/requests", attendanceHandler.ListRequests)
 
 	// Admin/HR/Manager routes
 	api.PUT("/leaves/:id/approve", leaveHandler.Approve, middleware.RequireRole(model.RoleAdmin, model.RoleHR, model.RoleManager))
 	api.GET("/attendance", attendanceHandler.List, middleware.RequireRole(model.RoleAdmin, model.RoleHR, model.RoleManager))
+	api.PUT("/attendance/requests/:id/approve", attendanceHandler.ApproveRequest, middleware.RequireRole(model.RoleAdmin, model.RoleHR, model.RoleManager))
 
 	// Admin/HR only routes
 	admin := api.Group("", middleware.RequireAdminOrHR())
 	admin.POST("/employees", employeeHandler.Create)
+	admin.PUT("/employees/:id", employeeHandler.Update)
+	admin.GET("/employees/:id/compensation", employeeHandler.GetCompensation)
+	admin.GET("/employees/:id/promotions", employeeHandler.GetPromotions)
+	admin.POST("/employees/:id/documents", employeeHandler.UploadDocument)
+	admin.DELETE("/employees/:id/documents/:doc_id", employeeHandler.DeleteDocument)
 	admin.GET("/users", userHandler.List)
 	admin.GET("/users/:id", userHandler.Get)
 	admin.PUT("/users/:id/role", userHandler.ChangeRole)

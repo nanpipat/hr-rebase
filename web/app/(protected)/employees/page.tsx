@@ -1,14 +1,20 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import { getEmployees } from "@/lib/api";
+import Badge, { statusVariant } from "@/components/ui/Badge";
 
 export default function EmployeesPage() {
   const { user } = useAuth();
   const [employees, setEmployees] = useState<Array<Record<string, string>>>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [search, setSearch] = useState("");
+  const [deptFilter, setDeptFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+  const router = useRouter();
 
   useEffect(() => {
     getEmployees()
@@ -19,10 +25,39 @@ export default function EmployeesPage() {
 
   const canCreate = user?.role === "admin" || user?.role === "hr";
 
+  // Extract unique departments and statuses for filters
+  const departments = useMemo(
+    () => Array.from(new Set(employees.map((e) => e.department).filter(Boolean))).sort(),
+    [employees]
+  );
+  const statuses = useMemo(
+    () => Array.from(new Set(employees.map((e) => e.status).filter(Boolean))).sort(),
+    [employees]
+  );
+
+  // Client-side filtering
+  const filtered = useMemo(() => {
+    return employees.filter((emp) => {
+      const matchSearch =
+        !search ||
+        emp.employee_name?.toLowerCase().includes(search.toLowerCase()) ||
+        emp.employee_id?.toLowerCase().includes(search.toLowerCase()) ||
+        emp.designation?.toLowerCase().includes(search.toLowerCase());
+      const matchDept = !deptFilter || emp.department === deptFilter;
+      const matchStatus = !statusFilter || emp.status === statusFilter;
+      return matchSearch && matchDept && matchStatus;
+    });
+  }, [employees, search, deptFilter, statusFilter]);
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Employees</h1>
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Employees</h1>
+          <p className="text-sm text-gray-500 mt-1">
+            {loading ? "" : `${filtered.length} of ${employees.length} employees`}
+          </p>
+        </div>
         {canCreate && (
           <a
             href="/employees/new"
@@ -33,7 +68,69 @@ export default function EmployeesPage() {
         )}
       </div>
 
-      {loading && <p className="text-gray-500">Loading...</p>}
+      {/* Search + Filters */}
+      <div className="flex flex-col sm:flex-row gap-3 mb-6">
+        <div className="flex-1">
+          <input
+            type="text"
+            placeholder="Search by name, ID, or designation..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+          />
+        </div>
+        <select
+          value={deptFilter}
+          onChange={(e) => setDeptFilter(e.target.value)}
+          className="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
+        >
+          <option value="">All Departments</option>
+          {departments.map((d) => (
+            <option key={d} value={d}>
+              {d}
+            </option>
+          ))}
+        </select>
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          className="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
+        >
+          <option value="">All Statuses</option>
+          {statuses.map((s) => (
+            <option key={s} value={s}>
+              {s}
+            </option>
+          ))}
+        </select>
+        {(search || deptFilter || statusFilter) && (
+          <button
+            onClick={() => {
+              setSearch("");
+              setDeptFilter("");
+              setStatusFilter("");
+            }}
+            className="px-3 py-2 text-sm text-gray-500 hover:text-gray-700"
+          >
+            Clear
+          </button>
+        )}
+      </div>
+
+      {loading && (
+        <div className="bg-white rounded-lg shadow overflow-hidden">
+          {[1, 2, 3, 4, 5].map((i) => (
+            <div key={i} className="flex items-center gap-4 px-6 py-4 border-b border-gray-100 animate-pulse">
+              <div className="h-10 w-10 bg-gray-200 rounded-full" />
+              <div className="flex-1 space-y-2">
+                <div className="h-4 bg-gray-200 rounded w-32" />
+                <div className="h-3 bg-gray-200 rounded w-48" />
+              </div>
+              <div className="h-6 bg-gray-200 rounded w-16" />
+            </div>
+          ))}
+        </div>
+      )}
       {error && <p className="text-red-500">{error}</p>}
 
       {!loading && !error && (
@@ -41,37 +138,51 @@ export default function EmployeesPage() {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Department</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Designation</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  Employee
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  Department
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  Designation
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  Status
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {employees.map((emp) => (
-                <tr key={emp.employee_id}>
-                  <td className="px-6 py-4 text-sm text-gray-900">{emp.employee_id}</td>
-                  <td className="px-6 py-4 text-sm text-gray-900">{emp.employee_name}</td>
-                  <td className="px-6 py-4 text-sm text-gray-500">{emp.department}</td>
-                  <td className="px-6 py-4 text-sm text-gray-500">{emp.designation}</td>
+              {filtered.map((emp) => (
+                <tr
+                  key={emp.employee_id}
+                  onClick={() => router.push(`/employees/${emp.employee_id}`)}
+                  className="cursor-pointer hover:bg-gray-50"
+                >
+                  <td className="px-6 py-4">
+                    <div className="flex items-center gap-3">
+                      <div className="h-9 w-9 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-sm font-semibold shrink-0">
+                        {(emp.employee_name || "?").charAt(0).toUpperCase()}
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">{emp.employee_name}</p>
+                        <p className="text-xs text-gray-400">{emp.employee_id}</p>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 text-sm text-gray-500">{emp.department || "-"}</td>
+                  <td className="px-6 py-4 text-sm text-gray-500">{emp.designation || "-"}</td>
                   <td className="px-6 py-4 text-sm">
-                    <span
-                      className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        emp.status === "Active"
-                          ? "bg-green-100 text-green-800"
-                          : "bg-gray-100 text-gray-800"
-                      }`}
-                    >
-                      {emp.status}
-                    </span>
+                    <Badge variant={statusVariant(emp.status)}>{emp.status}</Badge>
                   </td>
                 </tr>
               ))}
-              {employees.length === 0 && (
+              {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-6 py-4 text-sm text-gray-500 text-center">
-                    No employees found
+                  <td colSpan={4} className="px-6 py-8 text-sm text-gray-500 text-center">
+                    {employees.length === 0
+                      ? "No employees found"
+                      : "No employees match your search"}
                   </td>
                 </tr>
               )}

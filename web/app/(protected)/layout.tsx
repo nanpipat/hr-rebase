@@ -1,6 +1,7 @@
 "use client";
 
 import { AuthProvider, useAuth } from "@/lib/auth-context";
+import { ToastProvider } from "@/components/ui/Toast";
 import Sidebar from "@/components/ui/Sidebar";
 
 function ProtectedContent({ children }: { children: React.ReactNode }) {
@@ -29,7 +30,9 @@ export default function ProtectedLayout({
 }) {
   return (
     <AuthProvider>
-      <ProtectedContent>{children}</ProtectedContent>
+      <ToastProvider>
+        <ProtectedContent>{children}</ProtectedContent>
+      </ToastProvider>
     </AuthProvider>
   );
 }

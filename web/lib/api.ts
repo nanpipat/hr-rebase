@@ -74,10 +74,79 @@ export async function getEmployee(id: string) {
   return api<{ data: Record<string, unknown> }>(`/employees/${id}`);
 }
 
+export async function getEmployeeFull(id: string) {
+  return api<{ data: Record<string, unknown> }>(`/employees/${id}/full`);
+}
+
+export async function updateEmployee(id: string, data: Record<string, unknown>) {
+  return api<{ data: Record<string, unknown> }>(`/employees/${id}`, {
+    method: "PUT",
+    body: data,
+  });
+}
+
 export async function createEmployee(data: { employee_name: string }) {
   return api<{ data: { employee_id: string } }>("/employees", {
     method: "POST",
     body: data,
+  });
+}
+
+export async function getEmployeeCompensation(id: string) {
+  return api<{ data: Record<string, unknown> }>(`/employees/${id}/compensation`);
+}
+
+export async function getEmployeeLeave(id: string) {
+  return api<{
+    data: {
+      allocations: Array<Record<string, unknown>>;
+      applications: Array<Record<string, unknown>>;
+    };
+  }>(`/employees/${id}/leave`);
+}
+
+export async function getEmployeeAttendance(id: string, fromDate?: string, toDate?: string) {
+  const params = new URLSearchParams();
+  if (fromDate) params.set("from_date", fromDate);
+  if (toDate) params.set("to_date", toDate);
+  const query = params.toString() ? `?${params.toString()}` : "";
+  return api<{ data: Record<string, unknown> }>(`/employees/${id}/attendance${query}`);
+}
+
+export async function getEmployeeDocuments(id: string) {
+  return api<{ data: Array<Record<string, unknown>> }>(`/employees/${id}/documents`);
+}
+
+export async function uploadEmployeeDocument(
+  id: string,
+  filename: string,
+  content: string,
+  docType?: string
+) {
+  return api<{ data: Record<string, unknown> }>(`/employees/${id}/documents`, {
+    method: "POST",
+    body: { filename, content, doc_type: docType },
+  });
+}
+
+export async function getEmployeePromotions(id: string) {
+  return api<{ data: Array<Record<string, unknown>> }>(`/employees/${id}/promotions`);
+}
+
+export async function updateEmployeeContact(id: string, data: Record<string, string>) {
+  return api<{ data: Record<string, unknown> }>(`/employees/${id}/contact`, {
+    method: "PUT",
+    body: data,
+  });
+}
+
+export async function getEmployeeTimeline(id: string) {
+  return api<{ data: Array<Record<string, unknown>> }>(`/employees/${id}/timeline`);
+}
+
+export async function deleteEmployeeDocument(employeeId: string, docId: string) {
+  return api<{ data: Record<string, unknown> }>(`/employees/${employeeId}/documents/${docId}`, {
+    method: "DELETE",
   });
 }
 
@@ -92,7 +161,7 @@ export async function createLeave(data: {
   to_date: string;
   reason: string;
 }) {
-  return api<{ message: string }>("/leaves", { method: "POST", body: data });
+  return api<{ data: Record<string, unknown> }>("/leaves", { method: "POST", body: data });
 }
 
 export async function approveLeave(id: string, status: "Approved" | "Rejected") {
@@ -102,6 +171,24 @@ export async function approveLeave(id: string, status: "Approved" | "Rejected") 
   });
 }
 
+export async function updateLeave(
+  id: string,
+  data: { leave_type?: string; from_date?: string; to_date?: string; reason?: string }
+) {
+  return api<{ data: Record<string, unknown> }>(`/leaves/${id}`, {
+    method: "PUT",
+    body: data,
+  });
+}
+
+export async function cancelLeave(id: string) {
+  return api<{ data: Record<string, unknown> }>(`/leaves/${id}`, { method: "DELETE" });
+}
+
+export async function getLeaveBalance() {
+  return api<{ data: Array<Record<string, unknown>> }>("/leaves/balance");
+}
+
 // Attendance
 export async function getMyAttendance(fromDate?: string, toDate?: string) {
   const params = new URLSearchParams();
@@ -109,6 +196,28 @@ export async function getMyAttendance(fromDate?: string, toDate?: string) {
   if (toDate) params.set("to_date", toDate);
   const query = params.toString() ? `?${params.toString()}` : "";
   return api<{ data: Record<string, unknown> }>(`/attendance/me${query}`);
+}
+
+export async function submitAttendanceRequest(data: {
+  attendance_date: string;
+  reason: string;
+  status?: string;
+}) {
+  return api<{ data: Record<string, unknown> }>("/attendance/requests", {
+    method: "POST",
+    body: data,
+  });
+}
+
+export async function getAttendanceRequests() {
+  return api<{ data: Array<Record<string, unknown>> }>("/attendance/requests");
+}
+
+export async function approveAttendanceRequest(id: string, action: "approve" | "reject") {
+  return api<{ data: Record<string, unknown> }>(`/attendance/requests/${id}/approve`, {
+    method: "PUT",
+    body: { action },
+  });
 }
 
 // Users
