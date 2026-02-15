@@ -9,8 +9,13 @@ import {
   getLeaveBalance,
   getMyAttendance,
   getAttendanceRequests,
+  getTodayCheckin,
+  checkin as apiCheckin,
+  checkout as apiCheckout,
+  getPayrollSlips,
 } from "@/lib/api";
 import Badge, { statusVariant } from "@/components/ui/Badge";
+import { useToast } from "@/components/ui/Toast";
 
 // ── Helpers ──────────────────────────────────────────────────
 
@@ -241,6 +246,7 @@ interface AdminData {
   employees: Array<Record<string, string>>;
   leaves: Array<Record<string, unknown>>;
   attendanceRequests: Array<Record<string, unknown>>;
+  payrollSlips: Array<Record<string, unknown>>;
 }
 
 function AdminDashboard() {
@@ -253,11 +259,13 @@ function AdminDashboard() {
       getEmployees().catch(() => ({ data: [] })),
       getLeaves().catch(() => ({ data: [] })),
       getAttendanceRequests().catch(() => ({ data: [] })),
-    ]).then(([empRes, leaveRes, attReqRes]) => {
+      getPayrollSlips(new Date().getFullYear(), new Date().getMonth() + 1).catch(() => ({ data: [] })),
+    ]).then(([empRes, leaveRes, attReqRes, payrollRes]) => {
       setData({
         employees: empRes.data || [],
         leaves: leaveRes.data || [],
         attendanceRequests: attReqRes.data || [],
+        payrollSlips: payrollRes.data || [],
       });
       setLoading(false);
     });
@@ -266,7 +274,7 @@ function AdminDashboard() {
   if (loading) return <SkeletonCards count={5} />;
   if (!data) return null;
 
-  const { employees, leaves, attendanceRequests } = data;
+  const { employees, leaves, attendanceRequests, payrollSlips } = data;
 
   // Stat calculations
   const totalEmployees = employees.length;
@@ -277,6 +285,12 @@ function AdminDashboard() {
     totalEmployees > 0
       ? Math.round((activeEmployees / totalEmployees) * 100)
       : 0;
+
+  // Payroll stats
+  const payrollDraft = payrollSlips.filter((s) => s.status === "Draft").length;
+  const payrollSubmitted = payrollSlips.filter((s) => s.status === "Submitted").length;
+  const payrollTotal = payrollSlips.length;
+  const payrollStatus = payrollTotal === 0 ? "Not run" : payrollDraft > 0 ? `${payrollDraft} draft` : "Completed";
 
   // Department breakdown
   const deptCounts = countBy(employees, (e) => e.department);
@@ -407,10 +421,11 @@ function AdminDashboard() {
           onClick={() => router.push("/attendance")}
         />
         <StatCard
-          label="Active Rate"
-          value={`${attendanceRate}%`}
-          color="text-emerald-600"
-          subtitle="Active / Total"
+          label="Payroll"
+          value={payrollStatus}
+          color={payrollDraft > 0 ? "text-orange-600" : payrollSubmitted > 0 ? "text-green-600" : "text-gray-500"}
+          subtitle={payrollTotal > 0 ? `${payrollSubmitted} submitted` : "This month"}
+          onClick={() => router.push("/payroll")}
         />
       </div>
 
@@ -564,6 +579,7 @@ function AdminDashboard() {
         <QuickAction label="View Employees" href="/employees" icon="👥" />
         <QuickAction label="Manage Leave" href="/leave" icon="📋" />
         <QuickAction label="Attendance" href="/attendance" icon="📊" />
+        <QuickAction label="Payroll" href="/payroll" icon="💰" />
         <QuickAction label="Manage Users" href="/settings" icon="⚙️" />
       </div>
     </div>
@@ -572,35 +588,86 @@ function AdminDashboard() {
 
 // ── Employee Dashboard ───────────────────────────────────────
 
+interface TodayCheckin {
+  checkins: Array<{ time: string; log_type: string }>;
+  first_in: string | null;
+  last_out: string | null;
+  working_hours: number;
+  is_checked_in: boolean;
+}
+
 interface EmployeeData {
   leaveBalance: Array<Record<string, unknown>>;
   attendanceSummary: { present: number; absent: number; on_leave: number; total_days: number } | null;
   myLeaves: Array<Record<string, unknown>>;
+  todayCheckin: TodayCheckin | null;
+  latestPayslip: { gross_pay: number; total_deduction: number; net_pay: number; start_date: string; status: string } | null;
 }
 
 function EmployeeDashboard() {
   const router = useRouter();
+  const { toast } = useToast();
   const [data, setData] = useState<EmployeeData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [checkinLoading, setCheckinLoading] = useState(false);
 
-  useEffect(() => {
+  function fetchData() {
     Promise.all([
       getLeaveBalance().catch(() => ({ data: [] })),
       getMyAttendance().catch(() => ({ data: null })),
       getLeaves().catch(() => ({ data: [] })),
-    ]).then(([balanceRes, attRes, leavesRes]) => {
+      getTodayCheckin().catch(() => ({ data: null })),
+      getPayrollSlips(new Date().getFullYear()).catch(() => ({ data: [] })),
+    ]).then(([balanceRes, attRes, leavesRes, checkinRes, payrollRes]) => {
       const attData = attRes.data as unknown as {
         summary?: { present: number; absent: number; on_leave: number; total_days: number };
       } | null;
+
+      const slips = (payrollRes.data || []) as Array<Record<string, unknown>>;
+      const latest = slips.length > 0 ? slips[0] as unknown as { gross_pay: number; total_deduction: number; net_pay: number; start_date: string; status: string } : null;
 
       setData({
         leaveBalance: balanceRes.data || [],
         attendanceSummary: attData?.summary || null,
         myLeaves: (leavesRes.data || []).slice(0, 5),
+        todayCheckin: checkinRes.data as TodayCheckin | null,
+        latestPayslip: latest,
       });
       setLoading(false);
     });
+  }
+
+  useEffect(() => {
+    fetchData();
   }, []);
+
+  async function handleCheckin() {
+    setCheckinLoading(true);
+    try {
+      await apiCheckin();
+      toast("Checked in successfully", "success");
+      const res = await getTodayCheckin().catch(() => ({ data: null }));
+      setData((prev) => prev ? { ...prev, todayCheckin: res.data as TodayCheckin | null } : prev);
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Failed to check in", "error");
+    } finally {
+      setCheckinLoading(false);
+    }
+  }
+
+  async function handleCheckout() {
+    setCheckinLoading(true);
+    try {
+      await apiCheckout();
+      toast("Checked out successfully", "success");
+      const res = await getTodayCheckin().catch(() => ({ data: null }));
+      setData((prev) => prev ? { ...prev, todayCheckin: res.data as TodayCheckin | null } : prev);
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Failed to check out", "error");
+    } finally {
+      setCheckinLoading(false);
+    }
+  }
 
   if (loading) {
     return (
@@ -617,7 +684,7 @@ function EmployeeDashboard() {
 
   if (!data) return null;
 
-  const { attendanceSummary, leaveBalance, myLeaves } = data;
+  const { attendanceSummary, leaveBalance, myLeaves, todayCheckin, latestPayslip } = data;
 
   // Attendance segments for donut
   const attSegments = attendanceSummary
@@ -633,8 +700,142 @@ function EmployeeDashboard() {
   // Leave balance bar colors
   const balanceColors = ["bg-blue-500", "bg-emerald-500", "bg-amber-500", "bg-purple-500", "bg-pink-500"];
 
+  // Check-in helpers
+  const notCheckedIn = !todayCheckin || (todayCheckin.checkins.length === 0 && !todayCheckin.is_checked_in);
+  const hasCheckedOut = todayCheckin && !todayCheckin.is_checked_in && todayCheckin.checkins.length > 0 && todayCheckin.last_out;
+
+  function formatCheckinTime(iso: string | null): string {
+    if (!iso) return "--:--";
+    const d = new Date(iso);
+    return d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true });
+  }
+
+  function formatCheckinHours(h: number): string {
+    if (h <= 0) return "--";
+    const hrs = Math.floor(h);
+    const mins = Math.round((h - hrs) * 60);
+    if (hrs === 0) return `${mins}m`;
+    if (mins === 0) return `${hrs}h`;
+    return `${hrs}h ${mins}m`;
+  }
+
   return (
     <div className="space-y-6">
+      {/* Quick Check-in Card */}
+      <SectionCard
+        title="Today's Check-in"
+        action={
+          <button
+            onClick={() => router.push("/attendance")}
+            className="text-sm text-blue-600 hover:text-blue-800"
+          >
+            View details
+          </button>
+        }
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-6">
+            <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
+              todayCheckin?.is_checked_in ? "bg-green-100" : hasCheckedOut ? "bg-gray-100" : "bg-blue-100"
+            }`}>
+              <svg className={`w-6 h-6 ${
+                todayCheckin?.is_checked_in ? "text-green-600" : hasCheckedOut ? "text-gray-500" : "text-blue-600"
+              }`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <div>
+              <p className="text-sm font-medium text-gray-900">
+                {todayCheckin?.is_checked_in
+                  ? `Working since ${formatCheckinTime(todayCheckin.first_in)}`
+                  : hasCheckedOut
+                    ? `Done - ${formatCheckinHours(todayCheckin!.working_hours)} today`
+                    : "Not checked in yet"}
+              </p>
+              <p className="text-xs text-gray-500">
+                {todayCheckin?.is_checked_in
+                  ? `${formatCheckinHours(todayCheckin.working_hours)} elapsed`
+                  : hasCheckedOut
+                    ? `${formatCheckinTime(todayCheckin!.first_in)} - ${formatCheckinTime(todayCheckin!.last_out)}`
+                    : "Tap to start your day"}
+              </p>
+            </div>
+          </div>
+          <div>
+            {notCheckedIn ? (
+              <button
+                onClick={handleCheckin}
+                disabled={checkinLoading}
+                className="px-5 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 text-sm font-medium transition-colors"
+              >
+                {checkinLoading ? "..." : "Check In"}
+              </button>
+            ) : todayCheckin?.is_checked_in ? (
+              <button
+                onClick={handleCheckout}
+                disabled={checkinLoading}
+                className="px-5 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 text-sm font-medium transition-colors"
+              >
+                {checkinLoading ? "..." : "Check Out"}
+              </button>
+            ) : (
+              <span className="text-sm text-gray-400 font-medium">Checked Out</span>
+            )}
+          </div>
+        </div>
+      </SectionCard>
+
+      {/* Latest Payslip */}
+      {latestPayslip && (
+        <SectionCard
+          title="Latest Payslip"
+          action={
+            <button
+              onClick={() => router.push("/payroll")}
+              className="text-sm text-blue-600 hover:text-blue-800"
+            >
+              View all
+            </button>
+          }
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-6">
+              <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center">
+                <svg className="w-6 h-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <div>
+                <p className="text-sm text-gray-500">
+                  {(() => {
+                    const d = new Date(latestPayslip.start_date + "T00:00:00");
+                    return d.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+                  })()}
+                </p>
+                <p className="text-2xl font-bold text-gray-900">
+                  {new Intl.NumberFormat("th-TH").format(latestPayslip.net_pay)}
+                </p>
+                <p className="text-xs text-gray-400">Net Pay</p>
+              </div>
+            </div>
+            <div className="text-right space-y-1">
+              <div>
+                <span className="text-xs text-gray-500">Gross: </span>
+                <span className="text-sm font-medium text-gray-700">
+                  {new Intl.NumberFormat("th-TH").format(latestPayslip.gross_pay)}
+                </span>
+              </div>
+              <div>
+                <span className="text-xs text-gray-500">Deductions: </span>
+                <span className="text-sm font-medium text-red-600">
+                  -{new Intl.NumberFormat("th-TH").format(latestPayslip.total_deduction)}
+                </span>
+              </div>
+            </div>
+          </div>
+        </SectionCard>
+      )}
+
       {/* Attendance Ring + Leave Balance side by side */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* My Attendance */}
@@ -772,9 +973,10 @@ function EmployeeDashboard() {
       </SectionCard>
 
       {/* Quick Actions */}
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <QuickAction label="Request Leave" href="/leave" icon="📋" />
         <QuickAction label="My Attendance" href="/attendance" icon="📊" />
+        <QuickAction label="My Payslips" href="/payroll" icon="💰" />
         <QuickAction label="My Profile" href="/profile" icon="👤" />
       </div>
     </div>

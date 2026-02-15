@@ -132,6 +132,90 @@ func (h *AttendanceHandler) ListRequests(c echo.Context) error {
 	})
 }
 
+// Checkin records an employee check-in.
+func (h *AttendanceHandler) Checkin(c echo.Context) error {
+	employeeID := c.Get("employee_id").(string)
+	if employeeID == "" {
+		return echo.NewHTTPError(http.StatusBadRequest, "employee not linked to this user")
+	}
+
+	data, err := h.frappe.CallMethodPost("hr_core_ext.api.attendance.checkin", map[string]string{
+		"employee_id": employeeID,
+	})
+	if err != nil {
+		return frappeHTTPError(err, "failed to check in")
+	}
+
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"data": json.RawMessage(data),
+	})
+}
+
+// Checkout records an employee check-out.
+func (h *AttendanceHandler) Checkout(c echo.Context) error {
+	employeeID := c.Get("employee_id").(string)
+	if employeeID == "" {
+		return echo.NewHTTPError(http.StatusBadRequest, "employee not linked to this user")
+	}
+
+	data, err := h.frappe.CallMethodPost("hr_core_ext.api.attendance.checkout", map[string]string{
+		"employee_id": employeeID,
+	})
+	if err != nil {
+		return frappeHTTPError(err, "failed to check out")
+	}
+
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"data": json.RawMessage(data),
+	})
+}
+
+// TodayCheckin returns today's check-in status for the current user.
+func (h *AttendanceHandler) TodayCheckin(c echo.Context) error {
+	employeeID := c.Get("employee_id").(string)
+	if employeeID == "" {
+		return echo.NewHTTPError(http.StatusBadRequest, "employee not linked to this user")
+	}
+
+	data, err := h.frappe.CallMethod("hr_core_ext.api.attendance.get_today_checkin", map[string]string{
+		"employee_id": employeeID,
+	})
+	if err != nil {
+		return frappeHTTPError(err, "failed to fetch today's check-in status")
+	}
+
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"data": json.RawMessage(data),
+	})
+}
+
+// CheckinHistory returns check-in history grouped by date.
+func (h *AttendanceHandler) CheckinHistory(c echo.Context) error {
+	employeeID := c.Get("employee_id").(string)
+	if employeeID == "" {
+		return echo.NewHTTPError(http.StatusBadRequest, "employee not linked to this user")
+	}
+
+	params := map[string]string{
+		"employee_id": employeeID,
+	}
+	if fromDate := c.QueryParam("from_date"); fromDate != "" {
+		params["from_date"] = fromDate
+	}
+	if toDate := c.QueryParam("to_date"); toDate != "" {
+		params["to_date"] = toDate
+	}
+
+	data, err := h.frappe.CallMethod("hr_core_ext.api.attendance.get_checkin_history", params)
+	if err != nil {
+		return frappeHTTPError(err, "failed to fetch check-in history")
+	}
+
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"data": json.RawMessage(data),
+	})
+}
+
 // ApproveRequest approves or rejects an attendance request.
 func (h *AttendanceHandler) ApproveRequest(c echo.Context) error {
 	requestID := c.Param("id")

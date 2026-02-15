@@ -220,6 +220,50 @@ export async function approveAttendanceRequest(id: string, action: "approve" | "
   });
 }
 
+// Check-in / Check-out
+export async function checkin() {
+  return api<{ data: { name: string; time: string; log_type: string } }>("/checkin", {
+    method: "POST",
+  });
+}
+
+export async function checkout() {
+  return api<{ data: { name: string; time: string; log_type: string } }>("/checkout", {
+    method: "POST",
+  });
+}
+
+export async function getTodayCheckin() {
+  return api<{
+    data: {
+      checkins: Array<{ time: string; log_type: string }>;
+      first_in: string | null;
+      last_out: string | null;
+      working_hours: number;
+      is_checked_in: boolean;
+    };
+  }>("/checkin/today");
+}
+
+export async function getCheckinHistory(fromDate?: string, toDate?: string) {
+  const params = new URLSearchParams();
+  if (fromDate) params.set("from_date", fromDate);
+  if (toDate) params.set("to_date", toDate);
+  const query = params.toString() ? `?${params.toString()}` : "";
+  return api<{
+    data: {
+      days: Array<{
+        date: string;
+        first_in: string | null;
+        last_out: string | null;
+        working_hours: number;
+        checkin_count: number;
+        checkins: Array<{ time: string; log_type: string }>;
+      }>;
+    };
+  }>(`/checkin/history${query}`);
+}
+
 // Users
 export async function getUsers() {
   return api<{ data: Array<Record<string, unknown>> }>("/users");
@@ -272,4 +316,81 @@ export async function acceptInvite(data: {
 
 export async function revokeInvite(id: string) {
   return api<{ message: string }>(`/invites/${id}`, { method: "DELETE" });
+}
+
+// Payroll
+export async function getPayrollSlips(year?: number, month?: number) {
+  const params = new URLSearchParams();
+  if (year) params.set("year", String(year));
+  if (month) params.set("month", String(month));
+  const query = params.toString() ? `?${params.toString()}` : "";
+  return api<{ data: Array<Record<string, unknown>> }>(`/payroll/slips${query}`);
+}
+
+export async function getPayrollSlipDetail(id: string) {
+  return api<{
+    data: {
+      name: string;
+      employee: string;
+      employee_name: string;
+      start_date: string;
+      end_date: string;
+      posting_date: string | null;
+      gross_pay: number;
+      total_deduction: number;
+      net_pay: number;
+      status: string;
+      earnings: Array<{ salary_component: string; amount: number; formula: string | null }>;
+      deductions: Array<{ salary_component: string; amount: number; formula: string | null }>;
+    };
+  }>(`/payroll/slips/detail?id=${encodeURIComponent(id)}`);
+}
+
+export async function setupEmployeePayroll(
+  employeeId: string,
+  data: { base_salary: number; housing?: number; transport?: number }
+) {
+  return api<{ data: Record<string, unknown> }>(`/payroll/employees/${employeeId}/setup`, {
+    method: "POST",
+    body: data,
+  });
+}
+
+export async function generateSalarySlip(
+  employeeId: string,
+  data: { month: number; year: number }
+) {
+  return api<{ data: Record<string, unknown> }>(`/payroll/employees/${employeeId}/generate`, {
+    method: "POST",
+    body: data,
+  });
+}
+
+export async function processPayroll(data: { month: number; year: number; company?: string }) {
+  return api<{
+    data: {
+      month: number;
+      year: number;
+      created_count: number;
+      skipped_count: number;
+      error_count: number;
+      total_gross: number;
+      total_deduction: number;
+      total_net: number;
+      slips: Array<Record<string, unknown>>;
+      skipped: Array<Record<string, unknown>>;
+      errors: Array<Record<string, unknown>>;
+    };
+  }>("/payroll/process", { method: "POST", body: data });
+}
+
+export async function submitPayroll(data: { month: number; year: number }) {
+  return api<{
+    data: {
+      submitted_count: number;
+      error_count: number;
+      submitted: Array<Record<string, unknown>>;
+      errors: Array<Record<string, unknown>>;
+    };
+  }>("/payroll/submit", { method: "POST", body: data });
 }

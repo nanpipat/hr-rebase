@@ -1,62 +1,438 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useAuth } from "@/lib/auth-context";
 import {
   getMyAttendance,
   submitAttendanceRequest,
   getAttendanceRequests,
   approveAttendanceRequest,
+  checkin,
+  checkout,
+  getTodayCheckin,
+  getCheckinHistory,
 } from "@/lib/api";
 import Badge, { statusVariant } from "@/components/ui/Badge";
 import { useToast } from "@/components/ui/Toast";
 
-interface AttendanceRecord {
-  attendance_date: string;
-  status: string;
-  working_hours: number;
-  leave_type?: string;
+// ── Types ────────────────────────────────────────────────────
+
+interface AttendanceSummary {
+  total_days: number;
+  present: number;
+  absent: number;
+  on_leave: number;
 }
 
-interface AttendanceData {
-  records: AttendanceRecord[];
-  summary: {
-    total_days: number;
-    present: number;
-    absent: number;
-    on_leave: number;
-  };
+interface TodayCheckinData {
+  checkins: Array<{ time: string; log_type: string }>;
+  first_in: string | null;
+  last_out: string | null;
+  working_hours: number;
+  is_checked_in: boolean;
 }
+
+interface HistoryDay {
+  date: string;
+  first_in: string | null;
+  last_out: string | null;
+  working_hours: number;
+  checkin_count: number;
+  checkins: Array<{ time: string; log_type: string }>;
+}
+
+// ── Helpers ──────────────────────────────────────────────────
+
+function formatTime(iso: string | null): string {
+  if (!iso) return "--:--";
+  const d = new Date(iso);
+  return d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true });
+}
+
+function formatHours(h: number): string {
+  if (h <= 0) return "--";
+  const hrs = Math.floor(h);
+  const mins = Math.round((h - hrs) * 60);
+  if (hrs === 0) return `${mins}m`;
+  if (mins === 0) return `${hrs}h`;
+  return `${hrs}h ${mins}m`;
+}
+
+function formatDateLabel(dateStr: string): string {
+  const d = new Date(dateStr + "T00:00:00");
+  return d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+}
+
+function monthLabel(year: number, month: number): string {
+  const d = new Date(year, month, 1);
+  return d.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+}
+
+function getMonthRange(year: number, month: number) {
+  const from = `${year}-${String(month + 1).padStart(2, "0")}-01`;
+  const last = new Date(year, month + 1, 0);
+  const to = `${year}-${String(month + 1).padStart(2, "0")}-${String(last.getDate()).padStart(2, "0")}`;
+  return { from, to };
+}
+
+// ── Today's Check-in Card ────────────────────────────────────
+
+function TodayCard({
+  data,
+  onCheckin,
+  onCheckout,
+  loading,
+}: {
+  data: TodayCheckinData | null;
+  onCheckin: () => void;
+  onCheckout: () => void;
+  loading: boolean;
+}) {
+  const [elapsed, setElapsed] = useState("");
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    if (timerRef.current) clearInterval(timerRef.current);
+
+    if (data?.is_checked_in && data.first_in) {
+      const updateElapsed = () => {
+        const firstIn = new Date(data.first_in!);
+        const now = new Date();
+        let totalSec = Math.floor((now.getTime() - firstIn.getTime()) / 1000);
+        if (totalSec < 0) totalSec = 0;
+        const h = Math.floor(totalSec / 3600);
+        const m = Math.floor((totalSec % 3600) / 60);
+        const s = totalSec % 60;
+        setElapsed(
+          `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`
+        );
+      };
+      updateElapsed();
+      timerRef.current = setInterval(updateElapsed, 1000);
+    } else {
+      setElapsed("");
+    }
+
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, [data?.is_checked_in, data?.first_in]);
+
+  const hasCheckedOut =
+    data && !data.is_checked_in && data.checkins.length > 0 && data.last_out;
+  const notCheckedIn =
+    !data || (data.checkins.length === 0 && !data.is_checked_in);
+
+  return (
+    <div className="bg-white rounded-lg shadow p-6 mb-6">
+      <h2 className="text-base font-semibold text-gray-900 mb-4">Today</h2>
+
+      <div className="flex flex-col md:flex-row md:items-center gap-6">
+        {/* Timer / Status circle */}
+        <div className="flex-shrink-0 flex items-center justify-center">
+          <div
+            className={`w-36 h-36 rounded-full flex flex-col items-center justify-center border-4 ${
+              data?.is_checked_in
+                ? "border-green-400 bg-green-50"
+                : hasCheckedOut
+                  ? "border-gray-300 bg-gray-50"
+                  : "border-blue-300 bg-blue-50"
+            }`}
+          >
+            {data?.is_checked_in ? (
+              <>
+                <span className="text-2xl font-mono font-bold text-green-700">{elapsed}</span>
+                <span className="text-xs text-green-600 mt-1">Working</span>
+              </>
+            ) : hasCheckedOut ? (
+              <>
+                <span className="text-2xl font-bold text-gray-700">
+                  {formatHours(data!.working_hours)}
+                </span>
+                <span className="text-xs text-gray-500 mt-1">Done for today</span>
+              </>
+            ) : (
+              <>
+                <span className="text-2xl font-bold text-blue-700">--:--</span>
+                <span className="text-xs text-blue-600 mt-1">Not checked in</span>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* Details */}
+        <div className="flex-1 space-y-3">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <p className="text-xs text-gray-500">Check-in</p>
+              <p className="text-sm font-medium text-gray-900">{formatTime(data?.first_in ?? null)}</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-500">Check-out</p>
+              <p className="text-sm font-medium text-gray-900">{formatTime(data?.last_out ?? null)}</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-500">Working Hours</p>
+              <p className="text-sm font-medium text-gray-900">
+                {data ? formatHours(data.working_hours) : "--"}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-500">Status</p>
+              <p className="text-sm font-medium">
+                {data?.is_checked_in ? (
+                  <span className="text-green-600">Checked In</span>
+                ) : hasCheckedOut ? (
+                  <span className="text-gray-600">Checked Out</span>
+                ) : (
+                  <span className="text-blue-600">Not Checked In</span>
+                )}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Action button */}
+        <div className="flex-shrink-0">
+          {notCheckedIn ? (
+            <button
+              onClick={onCheckin}
+              disabled={loading}
+              className="w-full md:w-auto px-8 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 font-medium text-sm transition-colors"
+            >
+              {loading ? "Checking in..." : "Check In"}
+            </button>
+          ) : data?.is_checked_in ? (
+            <button
+              onClick={onCheckout}
+              disabled={loading}
+              className="w-full md:w-auto px-8 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 font-medium text-sm transition-colors"
+            >
+              {loading ? "Checking out..." : "Check Out"}
+            </button>
+          ) : (
+            <button
+              disabled
+              className="w-full md:w-auto px-8 py-3 bg-gray-200 text-gray-500 rounded-lg font-medium text-sm cursor-not-allowed"
+            >
+              Checked Out
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Summary Cards ────────────────────────────────────────────
+
+function SummaryCards({ summary }: { summary: AttendanceSummary | null }) {
+  if (!summary) return null;
+
+  const cards = [
+    { label: "Total Days", value: summary.total_days, color: "text-gray-900" },
+    { label: "Present", value: summary.present, color: "text-green-600" },
+    { label: "Absent", value: summary.absent, color: "text-red-600" },
+    { label: "On Leave", value: summary.on_leave, color: "text-yellow-600" },
+  ];
+
+  return (
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+      {cards.map((c) => (
+        <div key={c.label} className="bg-white rounded-lg shadow p-4">
+          <p className="text-sm text-gray-500">{c.label}</p>
+          <p className={`text-2xl font-bold ${c.color}`}>{c.value}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ── Check-in History ─────────────────────────────────────────
+
+function CheckinHistorySection() {
+  const now = new Date();
+  const [year, setYear] = useState(now.getFullYear());
+  const [month, setMonth] = useState(now.getMonth());
+  const [days, setDays] = useState<HistoryDay[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchHistory = useCallback(() => {
+    setLoading(true);
+    const { from, to } = getMonthRange(year, month);
+    getCheckinHistory(from, to)
+      .then((res) => setDays(res.data?.days || []))
+      .catch(() => setDays([]))
+      .finally(() => setLoading(false));
+  }, [year, month]);
+
+  useEffect(() => {
+    fetchHistory();
+  }, [fetchHistory]);
+
+  function prevMonth() {
+    if (month === 0) {
+      setYear(year - 1);
+      setMonth(11);
+    } else {
+      setMonth(month - 1);
+    }
+  }
+
+  function nextMonth() {
+    if (month === 11) {
+      setYear(year + 1);
+      setMonth(0);
+    } else {
+      setMonth(month + 1);
+    }
+  }
+
+  const isCurrentMonth =
+    year === now.getFullYear() && month === now.getMonth();
+
+  return (
+    <div className="bg-white rounded-lg shadow mb-6">
+      <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+        <h2 className="text-base font-semibold text-gray-900">Check-in History</h2>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={prevMonth}
+            className="p-1 rounded hover:bg-gray-100 text-gray-500"
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+          <span className="text-sm font-medium text-gray-700 min-w-[140px] text-center">
+            {monthLabel(year, month)}
+          </span>
+          <button
+            onClick={nextMonth}
+            disabled={isCurrentMonth}
+            className="p-1 rounded hover:bg-gray-100 text-gray-500 disabled:opacity-30 disabled:cursor-not-allowed"
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <div className="overflow-x-auto">
+        {loading ? (
+          <div className="px-6 py-8 text-center text-gray-400 text-sm">Loading...</div>
+        ) : days.length === 0 ? (
+          <div className="px-6 py-8 text-center text-gray-400 text-sm">
+            No check-in records for {monthLabel(year, month)}
+          </div>
+        ) : (
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">In</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Out</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Hours</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Logs</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200">
+              {days.map((day) => (
+                <tr key={day.date} className="hover:bg-gray-50">
+                  <td className="px-6 py-3 text-sm font-medium text-gray-900">
+                    {formatDateLabel(day.date)}
+                  </td>
+                  <td className="px-6 py-3 text-sm text-gray-700">
+                    {formatTime(day.first_in)}
+                  </td>
+                  <td className="px-6 py-3 text-sm text-gray-700">
+                    {formatTime(day.last_out)}
+                  </td>
+                  <td className="px-6 py-3 text-sm text-gray-700">
+                    {formatHours(day.working_hours)}
+                  </td>
+                  <td className="px-6 py-3 text-sm text-gray-500">
+                    {day.checkin_count}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Main Page ────────────────────────────────────────────────
 
 export default function AttendancePage() {
   const { user } = useAuth();
-  const [data, setData] = useState<AttendanceData | null>(null);
+  const { toast } = useToast();
+
+  const [todayData, setTodayData] = useState<TodayCheckinData | null>(null);
+  const [summary, setSummary] = useState<AttendanceSummary | null>(null);
   const [requests, setRequests] = useState<Array<Record<string, unknown>>>([]);
-  const [loading, setLoading] = useState(true);
+  const [pageLoading, setPageLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState(false);
+
+  // Correction request form
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ attendance_date: "", reason: "", status: "Present" });
   const [submitting, setSubmitting] = useState(false);
 
-  const { toast } = useToast();
   const canApprove =
     user?.role === "admin" || user?.role === "hr" || user?.role === "manager";
 
-  function fetchData() {
-    setLoading(true);
+  const fetchAll = useCallback(() => {
+    setPageLoading(true);
     Promise.all([
+      getTodayCheckin().catch(() => ({ data: null })),
       getMyAttendance().catch(() => ({ data: null })),
       getAttendanceRequests().catch(() => ({ data: [] })),
     ])
-      .then(([attRes, reqRes]) => {
-        setData(attRes.data as unknown as AttendanceData);
+      .then(([todayRes, attRes, reqRes]) => {
+        setTodayData(todayRes.data as TodayCheckinData | null);
+        const attData = attRes.data as unknown as { summary?: AttendanceSummary } | null;
+        setSummary(attData?.summary ?? null);
         setRequests(reqRes.data || []);
       })
-      .finally(() => setLoading(false));
-  }
+      .finally(() => setPageLoading(false));
+  }, []);
 
   useEffect(() => {
-    fetchData();
-  }, []);
+    fetchAll();
+  }, [fetchAll]);
+
+  async function handleCheckin() {
+    setActionLoading(true);
+    try {
+      await checkin();
+      toast("Checked in successfully", "success");
+      // Refresh today's data
+      const res = await getTodayCheckin().catch(() => ({ data: null }));
+      setTodayData(res.data as TodayCheckinData | null);
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Failed to check in", "error");
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
+  async function handleCheckout() {
+    setActionLoading(true);
+    try {
+      await checkout();
+      toast("Checked out successfully", "success");
+      const res = await getTodayCheckin().catch(() => ({ data: null }));
+      setTodayData(res.data as TodayCheckinData | null);
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Failed to check out", "error");
+    } finally {
+      setActionLoading(false);
+    }
+  }
 
   async function handleSubmitRequest(e: React.FormEvent) {
     e.preventDefault();
@@ -66,7 +442,7 @@ export default function AttendancePage() {
       setShowForm(false);
       setForm({ attendance_date: "", reason: "", status: "Present" });
       toast("Correction request submitted", "success");
-      fetchData();
+      fetchAll();
     } catch (err) {
       toast(err instanceof Error ? err.message : "Failed to submit request", "error");
     } finally {
@@ -78,7 +454,7 @@ export default function AttendancePage() {
     try {
       await approveAttendanceRequest(id, action);
       toast(`Request ${action}d`, "success");
-      fetchData();
+      fetchAll();
     } catch {
       toast(`Failed to ${action} request`, "error");
     }
@@ -87,7 +463,7 @@ export default function AttendancePage() {
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">My Attendance</h1>
+        <h1 className="text-2xl font-bold text-gray-900">Attendance</h1>
         <button
           onClick={() => setShowForm(!showForm)}
           className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm"
@@ -96,29 +472,23 @@ export default function AttendancePage() {
         </button>
       </div>
 
-      {loading && <p className="text-gray-500">Loading...</p>}
+      {pageLoading && <p className="text-gray-500 mb-6">Loading...</p>}
 
-      {/* Summary Cards */}
-      {data?.summary && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-          <div className="bg-white rounded-lg shadow p-4">
-            <p className="text-sm text-gray-500">Total Days</p>
-            <p className="text-2xl font-bold">{data.summary.total_days}</p>
-          </div>
-          <div className="bg-white rounded-lg shadow p-4">
-            <p className="text-sm text-gray-500">Present</p>
-            <p className="text-2xl font-bold text-green-600">{data.summary.present}</p>
-          </div>
-          <div className="bg-white rounded-lg shadow p-4">
-            <p className="text-sm text-gray-500">Absent</p>
-            <p className="text-2xl font-bold text-red-600">{data.summary.absent}</p>
-          </div>
-          <div className="bg-white rounded-lg shadow p-4">
-            <p className="text-sm text-gray-500">On Leave</p>
-            <p className="text-2xl font-bold text-yellow-600">{data.summary.on_leave}</p>
-          </div>
-        </div>
+      {/* Today's Check-in Card */}
+      {!pageLoading && (
+        <TodayCard
+          data={todayData}
+          onCheckin={handleCheckin}
+          onCheckout={handleCheckout}
+          loading={actionLoading}
+        />
       )}
+
+      {/* Monthly Summary */}
+      <SummaryCards summary={summary} />
+
+      {/* Check-in History */}
+      <CheckinHistorySection />
 
       {/* Correction Request Form */}
       {showForm && (
@@ -171,7 +541,7 @@ export default function AttendancePage() {
         </form>
       )}
 
-      {/* Pending Requests */}
+      {/* Attendance Requests */}
       {requests.length > 0 && (
         <div className="mb-6">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Attendance Requests</h2>
@@ -180,13 +550,23 @@ export default function AttendancePage() {
               <thead className="bg-gray-50">
                 <tr>
                   {canApprove && (
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Employee</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Employee
+                    </th>
                   )}
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Reason</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    Date
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    Reason
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    Status
+                  </th>
                   {canApprove && (
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Actions
+                    </th>
                   )}
                 </tr>
               </thead>
@@ -194,12 +574,20 @@ export default function AttendancePage() {
                 {requests.map((req, i) => (
                   <tr key={i}>
                     {canApprove && (
-                      <td className="px-6 py-4 text-sm text-gray-900">{String(req.employee_name || "")}</td>
+                      <td className="px-6 py-4 text-sm text-gray-900">
+                        {String(req.employee_name || "")}
+                      </td>
                     )}
-                    <td className="px-6 py-4 text-sm text-gray-900">{String(req.from_date)}</td>
-                    <td className="px-6 py-4 text-sm text-gray-500">{String(req.reason || "")}</td>
+                    <td className="px-6 py-4 text-sm text-gray-900">
+                      {String(req.from_date)}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-500">
+                      {String(req.reason || "")}
+                    </td>
                     <td className="px-6 py-4 text-sm">
-                      <Badge variant={statusVariant(String(req.status))}>{String(req.status)}</Badge>
+                      <Badge variant={statusVariant(String(req.status))}>
+                        {String(req.status)}
+                      </Badge>
                     </td>
                     {canApprove && (
                       <td className="px-6 py-4 text-sm space-x-2">
@@ -226,41 +614,6 @@ export default function AttendancePage() {
               </tbody>
             </table>
           </div>
-        </div>
-      )}
-
-      {/* Records Table */}
-      {data?.records && (
-        <div className="bg-white rounded-lg shadow overflow-hidden">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Working Hours</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {data.records.map((record, idx) => (
-                <tr key={idx}>
-                  <td className="px-6 py-4 text-sm text-gray-900">{record.attendance_date}</td>
-                  <td className="px-6 py-4 text-sm">
-                    <Badge variant={statusVariant(record.status)}>{record.status}</Badge>
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-500">
-                    {record.working_hours ? `${record.working_hours}h` : "-"}
-                  </td>
-                </tr>
-              ))}
-              {data.records.length === 0 && (
-                <tr>
-                  <td colSpan={3} className="px-6 py-4 text-sm text-gray-500 text-center">
-                    No attendance records
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
         </div>
       )}
     </div>

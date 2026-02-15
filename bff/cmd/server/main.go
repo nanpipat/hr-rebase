@@ -49,6 +49,7 @@ func main() {
 	employeeHandler := handler.NewEmployeeHandler(frappeClient, companyRepo)
 	leaveHandler := handler.NewLeaveHandler(frappeClient)
 	attendanceHandler := handler.NewAttendanceHandler(frappeClient)
+	payrollHandler := handler.NewPayrollHandler(frappeClient)
 
 	// --- Echo ---
 	e := echo.New()
@@ -94,10 +95,20 @@ func main() {
 	api.PUT("/leaves/:id", leaveHandler.Update)
 	api.DELETE("/leaves/:id", leaveHandler.Cancel)
 
+	// Check-in / Check-out routes (all roles)
+	api.POST("/checkin", attendanceHandler.Checkin)
+	api.POST("/checkout", attendanceHandler.Checkout)
+	api.GET("/checkin/today", attendanceHandler.TodayCheckin)
+	api.GET("/checkin/history", attendanceHandler.CheckinHistory)
+
 	// Attendance routes (all roles)
 	api.GET("/attendance/me", attendanceHandler.Me)
 	api.POST("/attendance/requests", attendanceHandler.CreateRequest)
 	api.GET("/attendance/requests", attendanceHandler.ListRequests)
+
+	// Payroll routes (all roles, self-filtered in handler)
+	api.GET("/payroll/slips", payrollHandler.ListSlips)
+	api.GET("/payroll/slips/detail", payrollHandler.GetSlip)
 
 	// Admin/HR/Manager routes
 	api.PUT("/leaves/:id/approve", leaveHandler.Approve, middleware.RequireRole(model.RoleAdmin, model.RoleHR, model.RoleManager))
@@ -120,6 +131,10 @@ func main() {
 	admin.POST("/invites", inviteHandler.Create)
 	admin.GET("/invites", inviteHandler.List)
 	admin.DELETE("/invites/:id", inviteHandler.Revoke)
+	admin.POST("/payroll/employees/:id/setup", payrollHandler.SetupEmployee)
+	admin.POST("/payroll/employees/:id/generate", payrollHandler.GenerateSlip)
+	admin.POST("/payroll/process", payrollHandler.Process)
+	admin.POST("/payroll/submit", payrollHandler.Submit)
 
 	addr := fmt.Sprintf(":%s", cfg.Port)
 	log.Printf("BFF server starting on %s", addr)

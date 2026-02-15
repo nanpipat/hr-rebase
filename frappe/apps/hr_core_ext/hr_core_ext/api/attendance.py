@@ -167,3 +167,207 @@ def approve_attendance_request(request_id, action):
 
     frappe.db.commit()
     return {"name": doc.name, "action": action}
+
+
+@frappe.whitelist(allow_guest=False)
+def checkin(employee_id, log_type="IN"):
+    """Record an employee check-in or check-out."""
+    if not frappe.db.exists("Employee", employee_id):
+        frappe.throw(f"Employee {employee_id} not found", frappe.DoesNotExistError)
+
+    emp = frappe.get_doc("Employee", employee_id)
+    if emp.status != "Active":
+        frappe.throw("Only active employees can check in")
+
+    if log_type not in ("IN", "OUT"):
+        frappe.throw("log_type must be 'IN' or 'OUT'")
+
+    today = frappe.utils.nowdate()
+    today_start = today + " 00:00:00"
+    today_end = today + " 23:59:59"
+
+    # Get today's checkins to validate
+    today_checkins = frappe.get_list(
+        "Employee Checkin",
+        fields=["name", "time", "log_type"],
+        filters={
+            "employee": employee_id,
+            "time": ["between", [today_start, today_end]],
+        },
+        order_by="time asc",
+        limit_page_length=0,
+    )
+
+    if log_type == "IN":
+        # Prevent double check-in without check-out
+        if today_checkins:
+            last = today_checkins[-1]
+            if last.log_type == "IN":
+                frappe.throw("Already checked in. Please check out first.")
+    elif log_type == "OUT":
+        # Must have checked in first
+        if not today_checkins:
+            frappe.throw("You haven't checked in today.")
+        last = today_checkins[-1]
+        if last.log_type == "OUT":
+            frappe.throw("Already checked out. Please check in first.")
+
+    now = frappe.utils.now_datetime()
+    doc = frappe.get_doc({
+        "doctype": "Employee Checkin",
+        "employee": employee_id,
+        "time": now,
+        "log_type": log_type,
+    })
+    doc.insert(ignore_permissions=True)
+    frappe.db.commit()
+
+    return {
+        "name": doc.name,
+        "time": str(now),
+        "log_type": log_type,
+    }
+
+
+@frappe.whitelist(allow_guest=False)
+def checkout(employee_id):
+    """Shortcut to check out an employee."""
+    return checkin(employee_id, log_type="OUT")
+
+
+@frappe.whitelist(allow_guest=False)
+def get_today_checkin(employee_id):
+    """Get today's check-in/out status for an employee."""
+    if not frappe.db.exists("Employee", employee_id):
+        frappe.throw(f"Employee {employee_id} not found", frappe.DoesNotExistError)
+
+    today = frappe.utils.nowdate()
+    today_start = today + " 00:00:00"
+    today_end = today + " 23:59:59"
+
+    checkins = frappe.get_list(
+        "Employee Checkin",
+        fields=["name", "time", "log_type"],
+        filters={
+            "employee": employee_id,
+            "time": ["between", [today_start, today_end]],
+        },
+        order_by="time asc",
+        limit_page_length=0,
+    )
+
+    first_in = None
+    last_out = None
+    is_checked_in = False
+    working_hours = 0.0
+
+    if checkins:
+        # Find first IN and last OUT
+        for c in checkins:
+            if c.log_type == "IN" and first_in is None:
+                first_in = str(c.time)
+            if c.log_type == "OUT":
+                last_out = str(c.time)
+
+        # Current status: last log determines if checked in
+        is_checked_in = checkins[-1].log_type == "IN"
+
+        # Calculate working hours from paired IN/OUT
+        from datetime import datetime
+        total_seconds = 0
+        current_in = None
+        for c in checkins:
+            if c.log_type == "IN":
+                current_in = c.time
+            elif c.log_type == "OUT" and current_in:
+                if isinstance(current_in, str):
+                    current_in = datetime.fromisoformat(current_in)
+                out_time = c.time
+                if isinstance(out_time, str):
+                    out_time = datetime.fromisoformat(out_time)
+                total_seconds += (out_time - current_in).total_seconds()
+                current_in = None
+
+        # If still checked in, count time until now
+        if is_checked_in and current_in:
+            from datetime import datetime as dt
+            now = frappe.utils.now_datetime()
+            if isinstance(current_in, str):
+                current_in = dt.fromisoformat(current_in)
+            total_seconds += (now - current_in).total_seconds()
+
+        working_hours = round(total_seconds / 3600, 2)
+
+    return {
+        "checkins": [{"time": str(c.time), "log_type": c.log_type} for c in checkins],
+        "first_in": first_in,
+        "last_out": last_out,
+        "working_hours": working_hours,
+        "is_checked_in": is_checked_in,
+    }
+
+
+@frappe.whitelist(allow_guest=False)
+def get_checkin_history(employee_id, from_date=None, to_date=None):
+    """Get check-in history grouped by date."""
+    if not frappe.db.exists("Employee", employee_id):
+        frappe.throw(f"Employee {employee_id} not found", frappe.DoesNotExistError)
+
+    if not from_date:
+        from_date = frappe.utils.get_first_day(frappe.utils.nowdate())
+    if not to_date:
+        to_date = frappe.utils.nowdate()
+
+    checkins = frappe.get_list(
+        "Employee Checkin",
+        fields=["name", "time", "log_type"],
+        filters={
+            "employee": employee_id,
+            "time": ["between", [str(from_date) + " 00:00:00", str(to_date) + " 23:59:59"]],
+        },
+        order_by="time asc",
+        limit_page_length=0,
+    )
+
+    # Group by date
+    from collections import defaultdict
+    from datetime import datetime
+    days_map = defaultdict(list)
+    for c in checkins:
+        t = c.time
+        if isinstance(t, str):
+            t = datetime.fromisoformat(t)
+        date_str = t.strftime("%Y-%m-%d")
+        days_map[date_str].append({"time": str(c.time), "log_type": c.log_type})
+
+    # Build daily summaries
+    days = []
+    for date_str in sorted(days_map.keys(), reverse=True):
+        day_checkins = days_map[date_str]
+        first_in = None
+        last_out = None
+        total_seconds = 0
+        current_in = None
+
+        for c in day_checkins:
+            t = datetime.fromisoformat(c["time"])
+            if c["log_type"] == "IN":
+                if first_in is None:
+                    first_in = c["time"]
+                current_in = t
+            elif c["log_type"] == "OUT":
+                last_out = c["time"]
+                if current_in:
+                    total_seconds += (t - current_in).total_seconds()
+                    current_in = None
+
+        days.append({
+            "date": date_str,
+            "first_in": first_in,
+            "last_out": last_out,
+            "working_hours": round(total_seconds / 3600, 2),
+            "checkin_count": len(day_checkins),
+            "checkins": day_checkins,
+        })
+
+    return {"days": days}

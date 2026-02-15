@@ -300,6 +300,160 @@
 
 ---
 
-## Phase 3 – Thai Payroll & Compliance (FUTURE)
+## Phase 2.4 – Rich UI & Bug Fixes (COMPLETED)
 
-> Not started. Planned for after Phase 2.3 completion.
+> Status: **COMPLETED**
+
+### 2.4.1 Rich Dashboard
+- [x] Admin Dashboard: 5 stat cards, department breakdown bars, leave overview, pending approval queue, recent activity feed, quick actions
+- [x] Employee Dashboard: attendance donut (conic-gradient), leave balance progress bars, recent leaves, quick actions
+- [x] CSS-only charts (no external dependencies)
+
+### 2.4.2 Rich Leave Page
+- [x] Admin view: 4 stat cards (Total/Pending/Approved/Rejected), pending approval queue with card-based approve/reject
+- [x] Employee view: leave balance progress bars with low-balance warnings
+- [x] Mini calendar view: CSS grid monthly calendar with colored leave dots, month navigation, today highlight
+- [x] Status filter tabs: All/Open/Approved/Rejected/Cancelled with count badges
+- [x] Enhanced leave form: dynamic types from balance, remaining days shown
+- [x] Better table: formatted dates, truncated reason with hover
+
+### 2.4.3 Leave System Fixes
+- [x] Leave Allocation: `allocate_leaves_for_employee()` — auto-allocate Thai defaults (Annual 12d, Sick 30d, Personal 6d)
+- [x] `ensure_leave_allocations()` API endpoint for existing employees
+- [x] `create_employee()` auto-calls allocation on new employee creation
+- [x] Leave Type `max_leaves_allowed` updated to Thai labor law (was capped too low)
+- [x] Holiday List: created "Thailand 2026" with 18 public holidays, set as company default
+- [x] `setup_holiday_list()` added to setup.py for future installs
+
+### 2.4.4 BFF Error Handling
+- [x] `FrappeError` type: parses `_server_messages` from Frappe error responses
+- [x] `frappeHTTPError()` helper: surfaces actual Frappe error messages
+- [x] Updated all handlers (leave, attendance, employee) to use real error messages
+
+### 2.4.5 Build Verification
+- [x] BFF Go build passes (`go build ./...`)
+- [x] Frontend TypeScript check passes
+- [x] BFF rebuilt and deployed with error handling fix
+
+---
+
+## Phase 3 – Feature Expansion (IN PROGRESS)
+
+> Status: **IN PROGRESS** — Adding modules comparable to Frappe HRMS
+
+### P0: Check-in/Check-out (Foundation for Attendance & Payroll) — COMPLETED
+- [x] Frappe API: `checkin()` — record check-in with timestamp, double check-in prevention
+- [x] Frappe API: `checkout()` — record check-out with timestamp, validates prior check-in
+- [x] Frappe API: `get_today_checkin()` — current day's status (first_in, last_out, working_hours, is_checked_in)
+- [x] Frappe API: `get_checkin_history()` — historical check-in logs grouped by date with daily summaries
+- [x] BFF: POST `/api/checkin` — employee check-in (JWT-protected)
+- [x] BFF: POST `/api/checkout` — employee check-out (JWT-protected)
+- [x] BFF: GET `/api/checkin/today` — today's status
+- [x] BFF: GET `/api/checkin/history` — history with date range query params
+- [x] Frontend: Check-in/Check-out button on dashboard (quick action card with status)
+- [x] Frontend: Rich attendance page — Today's card (live timer, status circle, check-in/out button), monthly summary, check-in history table with month navigation, correction requests
+- [x] Working hours auto-calculation from check-in/out times (paired IN/OUT + live elapsed)
+- [x] Deployed & verified end-to-end: check-in, double check-in prevention, check-out, history
+- [ ] Late arrival / early departure flagging (deferred — needs Shift Management P1)
+
+### P0: Payroll & Thai Tax — COMPLETED
+- [x] Frappe Setup: Thai salary components (Basic Salary, Housing Allowance, Transportation Allowance, Social Security, Personal Income Tax)
+- [x] Frappe Setup: "Thai Standard" Salary Structure with earnings + deductions
+- [x] Frappe Setup: Payroll Period "2026" (Jan 1 - Dec 31)
+- [x] Frappe Setup: Income Tax Slab "Thailand PIT 2026" with progressive brackets (0-35%)
+- [x] Frappe API: `setup_employee_payroll()` — create Salary Structure Assignment (handles joining_date vs first_of_month)
+- [x] Frappe API: `get_salary_slips()` — list slips with status mapping (Draft/Submitted/Cancelled)
+- [x] Frappe API: `get_salary_slip_detail()` — full slip with earnings/deductions breakdown
+- [x] Frappe API: `generate_salary_slip()` — create single slip (checks existing + active assignment)
+- [x] Frappe API: `process_payroll()` — bulk slip creation for all assigned employees
+- [x] Frappe API: `submit_payroll()` — submit all draft slips for period
+- [x] BFF: GET `/api/payroll/slips` — my salary slips (self-filtered for employee/manager)
+- [x] BFF: GET `/api/payroll/slips/detail?id=` — slip detail (query param due to slash in Frappe slip IDs)
+- [x] BFF: POST `/api/payroll/employees/:id/setup` — setup employee payroll assignment (admin/HR)
+- [x] BFF: POST `/api/payroll/employees/:id/generate` — generate single slip (admin/HR)
+- [x] BFF: POST `/api/payroll/process` — run payroll (admin/HR)
+- [x] BFF: POST `/api/payroll/submit` — submit payroll (admin/HR)
+- [x] Frontend: Payroll page — employee view (latest payslip card, history table, detail modal)
+- [x] Frontend: Payroll page — admin view (process/submit controls, stat cards, all employee slips)
+- [x] Frontend: Dashboard — admin payroll stat card + employee latest payslip card
+- [x] Frontend: Sidebar — "Payroll" menu item for all roles
+- [x] Deployed & verified end-to-end: setup assignment, generate slip, submit, employee self-view
+- [ ] Social Security formula in Salary Structure (deferred — Frappe regex validation breaks on component abbreviations with special chars)
+- [ ] PIT monthly withholding calculation (deferred — needs formula integration)
+- [ ] Provident Fund deduction support (deferred — optional, company policy dependent)
+
+### P1: Shift Management
+- [ ] Frappe API: CRUD for Shift Type (name, start_time, end_time, grace period)
+- [ ] Frappe API: Shift Assignment (assign employee to shift)
+- [ ] Frappe API: Shift Request (employee requests shift change)
+- [ ] BFF: CRUD routes for shifts
+- [ ] Frontend: Shift management page (admin/HR)
+- [ ] Frontend: Shift roster calendar (drag-and-drop)
+- [ ] Frontend: Shift request form (employee)
+- [ ] Auto-attendance based on shift + check-in data
+
+### P1: Reports & Analytics
+- [ ] Frappe API: `get_employee_report()` — demographics (age, gender, department breakdown)
+- [ ] Frappe API: `get_attrition_report()` — turnover rate by period
+- [ ] Frappe API: `get_leave_report()` — company-wide leave usage
+- [ ] Frappe API: `get_attendance_report()` — attendance summary by department
+- [ ] BFF: GET `/api/reports/:type` — report endpoints
+- [ ] Frontend: Reports page with chart visualizations
+- [ ] Frontend: CSV/PDF export for reports
+- [ ] Frontend: Date range and department filters
+
+### P2: Employee Lifecycle
+- [ ] Frappe API: Employee Onboarding — template-based checklist
+- [ ] Frappe API: Employee Separation — offboarding checklist
+- [ ] Frappe API: Employee Transfer — department/branch transfer
+- [ ] BFF: Lifecycle management routes
+- [ ] Frontend: Onboarding wizard for new hires
+- [ ] Frontend: Offboarding flow with exit interview
+- [ ] Frontend: Transfer request + approval
+
+### P2: Expense Claims
+- [ ] Frappe API: `create_expense_claim()` — submit claim with receipt
+- [ ] Frappe API: `get_expense_claims()` — list claims
+- [ ] Frappe API: `approve_expense_claim()` — approve/reject
+- [ ] BFF: CRUD routes for expense claims
+- [ ] Frontend: Expense claim form (receipt upload, amount, category)
+- [ ] Frontend: Expense approval queue (admin/HR/manager)
+- [ ] Frontend: Expense history with status tracking
+
+### P3: Recruitment
+- [ ] Frappe API: Job Opening CRUD
+- [ ] Frappe API: Job Applicant management
+- [ ] Frappe API: Interview scheduling + feedback
+- [ ] Frappe API: Job Offer generation
+- [ ] BFF: Recruitment routes
+- [ ] Frontend: Job opening management
+- [ ] Frontend: Applicant pipeline (kanban-style)
+- [ ] Frontend: Interview scheduling + feedback forms
+
+### P3: Performance Management
+- [ ] Frappe API: Goal management (create, update, track progress)
+- [ ] Frappe API: Appraisal cycle management
+- [ ] Frappe API: 360-degree feedback collection
+- [ ] BFF: Performance routes
+- [ ] Frontend: Goal setting + tracking page
+- [ ] Frontend: Appraisal form with self-evaluation
+- [ ] Frontend: Feedback collection from peers/managers
+
+### P4: Training
+- [ ] Frappe API: Training Program + Event CRUD
+- [ ] Frappe API: Training enrollment + results
+- [ ] BFF: Training routes
+- [ ] Frontend: Training catalog + enrollment
+
+### P4: Loans
+- [ ] Frappe API: Loan application + approval
+- [ ] Frappe API: Repayment tracking (deduct from salary)
+- [ ] BFF: Loan routes
+- [ ] Frontend: Loan application + history
+
+### P4: Leave Enhancements
+- [ ] Leave Encashment — cash payout for unused leaves
+- [ ] Compensatory Leave — overtime work → leave days
+- [ ] Leave Block List — restrict leave on specific dates
+- [ ] Earned Leave — pro-rata accrual over time
+- [ ] Leave Ledger — full transaction log

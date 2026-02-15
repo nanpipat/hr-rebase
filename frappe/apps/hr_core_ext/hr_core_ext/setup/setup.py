@@ -10,6 +10,7 @@ def run_setup():
     create_service_user()
     setup_leave_types()
     setup_holiday_list()
+    setup_payroll()
     frappe.db.commit()
     print("Initial setup completed successfully.")
 
@@ -167,3 +168,134 @@ def setup_holiday_list():
             company.default_holiday_list = list_name
             company.save(ignore_permissions=True)
             print(f"Set '{list_name}' as default holiday list for '{company_name}'.")
+
+
+def setup_payroll(company=None):
+    """Set up Thai payroll: salary components, structure, payroll period, and income tax slab."""
+    import datetime
+
+    year = datetime.date.today().year
+
+    # Auto-detect company: use param, then env var, then first company in DB
+    if company:
+        company_name = company
+    else:
+        company_name = os.environ.get("DEFAULT_COMPANY_NAME", "")
+        if not company_name or not frappe.db.exists("Company", company_name):
+            companies = frappe.get_list("Company", limit_page_length=1, order_by="creation asc")
+            if companies:
+                company_name = companies[0].name
+            else:
+                print("No company found. Skipping payroll setup.")
+                return
+    print(f"Setting up payroll for company: {company_name}")
+
+    # ── 1. Salary Components ──────────────────────────────────
+    earnings = [
+        {"name": "Basic Salary", "description": "Base monthly salary"},
+        {"name": "Housing Allowance", "description": "Monthly housing allowance"},
+        {"name": "Transportation Allowance", "description": "Monthly transportation allowance"},
+    ]
+    deductions = [
+        {"name": "Social Security", "description": "Thai SSO contribution 5 percent, cap 875 THB per month"},
+        {"name": "Personal Income Tax", "description": "Thai PIT monthly withholding"},
+    ]
+
+    for comp in earnings:
+        if not frappe.db.exists("Salary Component", comp["name"]):
+            frappe.get_doc({
+                "doctype": "Salary Component",
+                "salary_component": comp["name"],
+                "description": comp["description"],
+                "type": "Earning",
+            }).insert(ignore_permissions=True)
+            print(f"Salary Component '{comp['name']}' created.")
+
+    for comp in deductions:
+        if not frappe.db.exists("Salary Component", comp["name"]):
+            frappe.get_doc({
+                "doctype": "Salary Component",
+                "salary_component": comp["name"],
+                "description": comp["description"],
+                "type": "Deduction",
+            }).insert(ignore_permissions=True)
+            print(f"Salary Component '{comp['name']}' created.")
+
+    # ── 2. Payroll Period ─────────────────────────────────────
+    period_name = f"Payroll Period {year}"
+    if not frappe.db.exists("Payroll Period", period_name):
+        try:
+            doc = frappe.get_doc({
+                "doctype": "Payroll Period",
+                "__newname": period_name,
+                "company": company_name,
+                "start_date": f"{year}-01-01",
+                "end_date": f"{year}-12-31",
+            })
+            doc.insert(ignore_permissions=True)
+            print(f"Payroll Period '{doc.name}' created.")
+        except Exception as e:
+            print(f"Payroll Period setup skipped: {e}")
+    else:
+        print(f"Payroll Period '{period_name}' already exists.")
+
+    # ── 3. Income Tax Slab (Thailand PIT) ─────────────────────
+    slab_name = f"Thailand PIT {year}"
+    if not frappe.db.exists("Income Tax Slab", slab_name):
+        try:
+            slab = frappe.get_doc({
+                "doctype": "Income Tax Slab",
+                "__newname": slab_name,
+                "effective_from": f"{year}-01-01",
+                "company": company_name,
+                "currency": "THB",
+                "slabs": [
+                    {"from_amount": 0, "to_amount": 150000, "percent_deduction": 0},
+                    {"from_amount": 150001, "to_amount": 300000, "percent_deduction": 5},
+                    {"from_amount": 300001, "to_amount": 500000, "percent_deduction": 10},
+                    {"from_amount": 500001, "to_amount": 750000, "percent_deduction": 15},
+                    {"from_amount": 750001, "to_amount": 1000000, "percent_deduction": 20},
+                    {"from_amount": 1000001, "to_amount": 2000000, "percent_deduction": 25},
+                    {"from_amount": 2000001, "to_amount": 5000000, "percent_deduction": 30},
+                    {"from_amount": 5000001, "to_amount": 0, "percent_deduction": 35},
+                ],
+            })
+            slab.insert(ignore_permissions=True)
+            print(f"Income Tax Slab '{slab.name}' created with Thai PIT brackets.")
+        except Exception as e:
+            print(f"Income Tax Slab setup skipped: {e}")
+    else:
+        print(f"Income Tax Slab '{slab_name}' already exists.")
+
+    # ── 4. Salary Structure ───────────────────────────────────
+    structure_name = "Thai Standard"
+    if not frappe.db.exists("Salary Structure", structure_name):
+        try:
+            structure = frappe.get_doc({
+                "doctype": "Salary Structure",
+                "__newname": structure_name,
+                "company": company_name,
+                "is_active": "Yes",
+                "payroll_frequency": "Monthly",
+                "currency": "THB",
+                "earnings": [
+                    {"salary_component": "Basic Salary", "formula": "base", "amount_based_on_formula": 1},
+                    {"salary_component": "Housing Allowance", "amount": 0},
+                    {"salary_component": "Transportation Allowance", "amount": 0},
+                ],
+                "deductions": [
+                    {
+                        "salary_component": "Social Security",
+                        "amount": 0,
+                    },
+                    {
+                        "salary_component": "Personal Income Tax",
+                        "amount": 0,
+                    },
+                ],
+            })
+            structure.insert(ignore_permissions=True)
+            structure.submit()
+            print(f"Salary Structure '{structure_name}' created and submitted.")
+        except Exception as e:
+            print(f"Salary Structure setup skipped: {e}")
