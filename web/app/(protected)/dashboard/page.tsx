@@ -13,6 +13,7 @@ import {
   checkin as apiCheckin,
   checkout as apiCheckout,
   getPayrollSlips,
+  getMyShift,
 } from "@/lib/api";
 import Badge, { statusVariant } from "@/components/ui/Badge";
 import { useToast } from "@/components/ui/Toast";
@@ -579,6 +580,7 @@ function AdminDashboard() {
         <QuickAction label="View Employees" href="/employees" icon="👥" />
         <QuickAction label="Manage Leave" href="/leave" icon="📋" />
         <QuickAction label="Attendance" href="/attendance" icon="📊" />
+        <QuickAction label="Shifts" href="/shifts" icon="🕐" />
         <QuickAction label="Payroll" href="/payroll" icon="💰" />
         <QuickAction label="Manage Users" href="/settings" icon="⚙️" />
       </div>
@@ -602,6 +604,7 @@ interface EmployeeData {
   myLeaves: Array<Record<string, unknown>>;
   todayCheckin: TodayCheckin | null;
   latestPayslip: { gross_pay: number; total_deduction: number; net_pay: number; start_date: string; status: string } | null;
+  myShift: { has_shift: boolean; shift_type?: string; start_time?: string; end_time?: string } | null;
 }
 
 function EmployeeDashboard() {
@@ -618,7 +621,8 @@ function EmployeeDashboard() {
       getLeaves().catch(() => ({ data: [] })),
       getTodayCheckin().catch(() => ({ data: null })),
       getPayrollSlips(new Date().getFullYear()).catch(() => ({ data: [] })),
-    ]).then(([balanceRes, attRes, leavesRes, checkinRes, payrollRes]) => {
+      getMyShift().catch(() => ({ data: null })),
+    ]).then(([balanceRes, attRes, leavesRes, checkinRes, payrollRes, shiftRes]) => {
       const attData = attRes.data as unknown as {
         summary?: { present: number; absent: number; on_leave: number; total_days: number };
       } | null;
@@ -632,6 +636,7 @@ function EmployeeDashboard() {
         myLeaves: (leavesRes.data || []).slice(0, 5),
         todayCheckin: checkinRes.data as TodayCheckin | null,
         latestPayslip: latest,
+        myShift: shiftRes.data as { has_shift: boolean; shift_type?: string; start_time?: string; end_time?: string } | null,
       });
       setLoading(false);
     });
@@ -684,7 +689,7 @@ function EmployeeDashboard() {
 
   if (!data) return null;
 
-  const { attendanceSummary, leaveBalance, myLeaves, todayCheckin, latestPayslip } = data;
+  const { attendanceSummary, leaveBalance, myLeaves, todayCheckin, latestPayslip, myShift } = data;
 
   // Attendance segments for donut
   const attSegments = attendanceSummary
@@ -719,8 +724,48 @@ function EmployeeDashboard() {
     return `${hrs}h ${mins}m`;
   }
 
+  // Shift time formatter
+  function formatShiftTime(t: string | undefined): string {
+    if (!t) return "--:--";
+    const parts = t.split(":");
+    const h = parseInt(parts[0]);
+    const m = parts[1];
+    const ampm = h >= 12 ? "PM" : "AM";
+    const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+    return `${h12}:${m} ${ampm}`;
+  }
+
   return (
     <div className="space-y-6">
+      {/* My Shift Card */}
+      {myShift?.has_shift && (
+        <SectionCard
+          title="My Shift"
+          action={
+            <button
+              onClick={() => router.push("/shifts")}
+              className="text-sm text-blue-600 hover:text-blue-800"
+            >
+              View details
+            </button>
+          }
+        >
+          <div className="flex items-center gap-4">
+            <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center">
+              <svg className="w-5 h-5 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-gray-900">{myShift.shift_type}</p>
+              <p className="text-xs text-gray-500">
+                {formatShiftTime(myShift.start_time)} - {formatShiftTime(myShift.end_time)}
+              </p>
+            </div>
+          </div>
+        </SectionCard>
+      )}
+
       {/* Quick Check-in Card */}
       <SectionCard
         title="Today's Check-in"

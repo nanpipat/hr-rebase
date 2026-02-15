@@ -394,3 +394,112 @@ export async function submitPayroll(data: { month: number; year: number }) {
     };
   }>("/payroll/submit", { method: "POST", body: data });
 }
+
+// Shifts
+export async function getShiftTypes() {
+  return api<{ data: Array<Record<string, unknown>> }>("/shifts/types");
+}
+
+export async function createShiftType(data: {
+  name: string;
+  start_time: string;
+  end_time: string;
+  late_entry_grace_period?: number;
+  early_exit_grace_period?: number;
+}) {
+  return api<{ data: Record<string, unknown> }>("/shifts/types", {
+    method: "POST",
+    body: data,
+  });
+}
+
+export async function updateShiftType(name: string, data: Record<string, unknown>) {
+  return api<{ data: Record<string, unknown> }>(`/shifts/types/${encodeURIComponent(name)}`, {
+    method: "PUT",
+    body: data,
+  });
+}
+
+export async function getMyShift() {
+  return api<{
+    data: {
+      has_shift: boolean;
+      shift_type?: string;
+      start_time?: string;
+      end_time?: string;
+      assignment_start?: string;
+      assignment_end?: string | null;
+      late_entry_grace_period?: number;
+      early_exit_grace_period?: number;
+    };
+  }>("/shifts/me");
+}
+
+export async function getShiftAssignments(params?: {
+  employee_id?: string;
+  shift_type?: string;
+  date?: string;
+}) {
+  const sp = new URLSearchParams();
+  if (params?.employee_id) sp.set("employee_id", params.employee_id);
+  if (params?.shift_type) sp.set("shift_type", params.shift_type);
+  if (params?.date) sp.set("date", params.date);
+  const query = sp.toString() ? `?${sp.toString()}` : "";
+  return api<{ data: Array<Record<string, unknown>> }>(`/shifts/assignments${query}`);
+}
+
+export async function assignShift(data: {
+  employee_id: string;
+  shift_type: string;
+  start_date: string;
+  end_date?: string;
+}) {
+  return api<{ data: Record<string, unknown> }>("/shifts/assignments", {
+    method: "POST",
+    body: data,
+  });
+}
+
+export async function unassignShift(id: string) {
+  return api<{ data: Record<string, unknown> }>(`/shifts/assignments/${id}`, {
+    method: "DELETE",
+  });
+}
+
+export async function getShiftRequests() {
+  return api<{ data: Array<Record<string, unknown>> }>("/shifts/requests");
+}
+
+export async function createShiftRequest(data: {
+  shift_type: string;
+  from_date: string;
+  to_date: string;
+}) {
+  return api<{ data: Record<string, unknown> }>("/shifts/requests", {
+    method: "POST",
+    body: data,
+  });
+}
+
+export async function approveShiftRequest(id: string, action: "approve" | "reject") {
+  return api<{ data: Record<string, unknown> }>(`/shifts/requests/${id}/approve`, {
+    method: "PUT",
+    body: { action },
+  });
+}
+
+export async function processAutoAttendance(data: { date?: string; company?: string }) {
+  return api<{
+    data: {
+      date: string;
+      processed_count: number;
+      skipped_count: number;
+      error_count: number;
+      late_count: number;
+      early_exit_count: number;
+      created: Array<Record<string, unknown>>;
+      skipped: Array<Record<string, unknown>>;
+      errors: Array<Record<string, unknown>>;
+    };
+  }>("/shifts/auto-attendance", { method: "POST", body: data });
+}

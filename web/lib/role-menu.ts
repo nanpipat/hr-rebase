@@ -10,6 +10,7 @@ export const menuItems: MenuItem[] = [
   { href: "/users", label: "Users", roles: ["admin", "hr"] },
   { href: "/leave", label: "Leave", roles: ["admin", "hr", "manager", "employee"] },
   { href: "/attendance", label: "Attendance", roles: ["admin", "hr", "manager", "employee"] },
+  { href: "/shifts", label: "Shifts", roles: ["admin", "hr", "manager", "employee"] },
   { href: "/payroll", label: "Payroll", roles: ["admin", "hr", "manager", "employee"] },
   { href: "/profile", label: "Profile", roles: ["admin", "hr", "manager", "employee"] },
   { href: "/settings", label: "Settings", roles: ["admin"] },

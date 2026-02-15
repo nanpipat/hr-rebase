@@ -382,15 +382,24 @@
 - [ ] PIT monthly withholding calculation (deferred — needs formula integration)
 - [ ] Provident Fund deduction support (deferred — optional, company policy dependent)
 
-### P1: Shift Management
-- [ ] Frappe API: CRUD for Shift Type (name, start_time, end_time, grace period)
-- [ ] Frappe API: Shift Assignment (assign employee to shift)
-- [ ] Frappe API: Shift Request (employee requests shift change)
-- [ ] BFF: CRUD routes for shifts
-- [ ] Frontend: Shift management page (admin/HR)
-- [ ] Frontend: Shift roster calendar (drag-and-drop)
-- [ ] Frontend: Shift request form (employee)
-- [ ] Auto-attendance based on shift + check-in data
+### P1: Shift Management — COMPLETED
+- [x] Frappe Setup: 3 Thai shift types (Day 08-17, Evening 16-00, Night 00-08) with 15-min grace, auto-attendance enabled
+- [x] Frappe API: `get_shift_types()` — list all shift types with timedelta→str conversion
+- [x] Frappe API: `create_shift_type()` / `update_shift_type()` — CRUD with auto-attendance config
+- [x] Frappe API: `get_shift_assignments()` — list with optional employee/shift_type/date/company filters
+- [x] Frappe API: `assign_shift()` — create + submit assignment with overlap detection
+- [x] Frappe API: `unassign_shift()` — cancel submitted assignment
+- [x] Frappe API: `get_shift_requests()` / `create_shift_request()` — employee shift change requests (auto-finds approver)
+- [x] Frappe API: `approve_shift_request()` — approve (submits + creates assignment) / reject
+- [x] Frappe API: `get_employee_current_shift()` — active shift for today
+- [x] Frappe API: `process_auto_attendance()` — generate Attendance from checkins + shift rules (Present/Half Day/Absent, late_entry/early_exit flags)
+- [x] BFF: 11 shift routes (GET/POST/PUT/DELETE for types, assignments, requests, auto-attendance)
+- [x] BFF: Role-based filtering (employees see own shifts/requests only)
+- [x] Frontend: Shift page — admin view (stat cards, shift types table, roster week view, assignments, auto-attendance processor, request approval)
+- [x] Frontend: Shift page — employee view (current shift card, request form, request history)
+- [x] Frontend: Dashboard — "My Shift" card for employees, "Shifts" quick action for admin
+- [x] Frontend: Sidebar — "Shifts" menu item for all roles
+- [x] Deployed & verified end-to-end: shift types, assignments, my shift, auto-attendance, request create/reject
 
 ### P1: Reports & Analytics
 - [ ] Frappe API: `get_employee_report()` — demographics (age, gender, department breakdown)

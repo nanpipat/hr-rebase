@@ -11,6 +11,7 @@ def run_setup():
     setup_leave_types()
     setup_holiday_list()
     setup_payroll()
+    setup_shift_types()
     frappe.db.commit()
     print("Initial setup completed successfully.")
 
@@ -299,3 +300,47 @@ def setup_payroll(company=None):
             print(f"Salary Structure '{structure_name}' created and submitted.")
         except Exception as e:
             print(f"Salary Structure setup skipped: {e}")
+
+
+def setup_shift_types():
+    """Create default Thai shift types (Day, Evening, Night)."""
+    import datetime
+
+    year = datetime.date.today().year
+    holiday_list = f"Thailand {year}"
+    if not frappe.db.exists("Holiday List", holiday_list):
+        holiday_list = None
+
+    shift_types = [
+        {"name": "Day Shift", "start_time": "08:00:00", "end_time": "17:00:00"},
+        {"name": "Evening Shift", "start_time": "16:00:00", "end_time": "00:00:00"},
+        {"name": "Night Shift", "start_time": "00:00:00", "end_time": "08:00:00"},
+    ]
+
+    for st in shift_types:
+        if frappe.db.exists("Shift Type", st["name"]):
+            print(f"Shift Type '{st['name']}' already exists.")
+            continue
+
+        doc_data = {
+            "doctype": "Shift Type",
+            "__newname": st["name"],
+            "start_time": st["start_time"],
+            "end_time": st["end_time"],
+            "enable_auto_attendance": 1,
+            "determine_check_in_and_check_out": "Alternating entries as IN and OUT during the same shift",
+            "begin_check_in_before_shift_start_time": 60,
+            "allow_check_out_after_shift_end_time": 60,
+            "late_entry_grace_period": 15,
+            "early_exit_grace_period": 15,
+            "working_hours_threshold_for_half_day": 4.0,
+            "working_hours_threshold_for_absent": 2.0,
+        }
+        if holiday_list:
+            doc_data["holiday_list"] = holiday_list
+
+        try:
+            frappe.get_doc(doc_data).insert(ignore_permissions=True)
+            print(f"Shift Type '{st['name']}' created ({st['start_time']} - {st['end_time']}).")
+        except Exception as e:
+            print(f"Shift Type '{st['name']}' setup skipped: {e}")

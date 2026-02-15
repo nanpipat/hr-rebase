@@ -50,6 +50,7 @@ func main() {
 	leaveHandler := handler.NewLeaveHandler(frappeClient)
 	attendanceHandler := handler.NewAttendanceHandler(frappeClient)
 	payrollHandler := handler.NewPayrollHandler(frappeClient)
+	shiftHandler := handler.NewShiftHandler(frappeClient)
 
 	// --- Echo ---
 	e := echo.New()
@@ -110,10 +111,18 @@ func main() {
 	api.GET("/payroll/slips", payrollHandler.ListSlips)
 	api.GET("/payroll/slips/detail", payrollHandler.GetSlip)
 
+	// Shift routes (all roles, self-filtered in handler)
+	api.GET("/shifts/types", shiftHandler.ListShiftTypes)
+	api.GET("/shifts/me", shiftHandler.GetMyShift)
+	api.GET("/shifts/assignments", shiftHandler.ListAssignments)
+	api.GET("/shifts/requests", shiftHandler.ListRequests)
+	api.POST("/shifts/requests", shiftHandler.CreateRequest)
+
 	// Admin/HR/Manager routes
 	api.PUT("/leaves/:id/approve", leaveHandler.Approve, middleware.RequireRole(model.RoleAdmin, model.RoleHR, model.RoleManager))
 	api.GET("/attendance", attendanceHandler.List, middleware.RequireRole(model.RoleAdmin, model.RoleHR, model.RoleManager))
 	api.PUT("/attendance/requests/:id/approve", attendanceHandler.ApproveRequest, middleware.RequireRole(model.RoleAdmin, model.RoleHR, model.RoleManager))
+	api.PUT("/shifts/requests/:id/approve", shiftHandler.ApproveRequest, middleware.RequireRole(model.RoleAdmin, model.RoleHR, model.RoleManager))
 
 	// Admin/HR only routes
 	admin := api.Group("", middleware.RequireAdminOrHR())
@@ -135,6 +144,11 @@ func main() {
 	admin.POST("/payroll/employees/:id/generate", payrollHandler.GenerateSlip)
 	admin.POST("/payroll/process", payrollHandler.Process)
 	admin.POST("/payroll/submit", payrollHandler.Submit)
+	admin.POST("/shifts/types", shiftHandler.CreateShiftType)
+	admin.PUT("/shifts/types/:name", shiftHandler.UpdateShiftType)
+	admin.POST("/shifts/assignments", shiftHandler.AssignShift)
+	admin.DELETE("/shifts/assignments/:id", shiftHandler.UnassignShift)
+	admin.POST("/shifts/auto-attendance", shiftHandler.ProcessAutoAttendance)
 
 	addr := fmt.Sprintf(":%s", cfg.Port)
 	log.Printf("BFF server starting on %s", addr)
