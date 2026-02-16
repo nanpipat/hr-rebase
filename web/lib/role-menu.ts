@@ -1,19 +1,19 @@
 export interface MenuItem {
   href: string;
-  label: string;
+  labelKey: string;
   roles: string[];
 }
 
 export const menuItems: MenuItem[] = [
-  { href: "/dashboard", label: "Dashboard", roles: ["admin", "hr", "manager", "employee"] },
-  { href: "/employees", label: "Employees", roles: ["admin", "hr"] },
-  { href: "/users", label: "Users", roles: ["admin", "hr"] },
-  { href: "/leave", label: "Leave", roles: ["admin", "hr", "manager", "employee"] },
-  { href: "/attendance", label: "Attendance", roles: ["admin", "hr", "manager", "employee"] },
-  { href: "/shifts", label: "Shifts", roles: ["admin", "hr", "manager", "employee"] },
-  { href: "/payroll", label: "Payroll", roles: ["admin", "hr", "manager", "employee"] },
-  { href: "/profile", label: "Profile", roles: ["admin", "hr", "manager", "employee"] },
-  { href: "/settings", label: "Settings", roles: ["admin"] },
+  { href: "/dashboard", labelKey: "sidebar.dashboard", roles: ["admin", "hr", "manager", "employee"] },
+  { href: "/employees", labelKey: "sidebar.employees", roles: ["admin", "hr"] },
+  { href: "/users", labelKey: "sidebar.users", roles: ["admin", "hr"] },
+  { href: "/leave", labelKey: "sidebar.leave", roles: ["admin", "hr", "manager", "employee"] },
+  { href: "/attendance", labelKey: "sidebar.attendance", roles: ["admin", "hr", "manager", "employee"] },
+  { href: "/shifts", labelKey: "sidebar.shifts", roles: ["admin", "hr", "manager", "employee"] },
+  { href: "/payroll", labelKey: "sidebar.payroll", roles: ["admin", "hr", "manager", "employee"] },
+  { href: "/profile", labelKey: "sidebar.profile", roles: ["admin", "hr", "manager", "employee"] },
+  { href: "/settings", labelKey: "sidebar.settings", roles: ["admin"] },
 ];
 
 export function getMenuForRole(role: string): MenuItem[] {

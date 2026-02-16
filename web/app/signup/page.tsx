@@ -4,9 +4,12 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { signup } from "@/lib/api";
+import { useTranslations } from "@/lib/i18n";
+import LocaleSwitcher from "@/components/ui/LocaleSwitcher";
 
 export default function SignupPage() {
   const router = useRouter();
+  const t = useTranslations("signup");
   const [form, setForm] = useState({
     company_name: "",
     full_name: "",
@@ -29,7 +32,7 @@ export default function SignupPage() {
       await signup(form);
       router.push("/dashboard");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Signup failed");
+      setError(err instanceof Error ? err.message : t("signupFailed"));
     } finally {
       setLoading(false);
     }
@@ -38,11 +41,14 @@ export default function SignupPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
       <div className="max-w-md w-full bg-white rounded-lg shadow-md p-8">
+        <div className="flex justify-end mb-4">
+          <LocaleSwitcher />
+        </div>
         <h1 className="text-2xl font-bold text-center text-gray-900 mb-2">
-          Create your account
+          {t("title")}
         </h1>
         <p className="text-center text-sm text-gray-500 mb-8">
-          Set up your company on HR Platform
+          {t("subtitle")}
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-5">
@@ -54,7 +60,7 @@ export default function SignupPage() {
 
           <div>
             <label htmlFor="company_name" className="block text-sm font-medium text-gray-700 mb-1">
-              Company Name
+              {t("companyName")}
             </label>
             <input
               id="company_name"
@@ -68,7 +74,7 @@ export default function SignupPage() {
 
           <div>
             <label htmlFor="full_name" className="block text-sm font-medium text-gray-700 mb-1">
-              Your Full Name
+              {t("fullName")}
             </label>
             <input
               id="full_name"
@@ -82,7 +88,7 @@ export default function SignupPage() {
 
           <div>
             <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-              Email
+              {t("emailLabel")}
             </label>
             <input
               id="email"
@@ -96,7 +102,7 @@ export default function SignupPage() {
 
           <div>
             <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
-              Password
+              {t("passwordLabel")}
             </label>
             <input
               id="password"
@@ -107,7 +113,7 @@ export default function SignupPage() {
               minLength={8}
               required
             />
-            <p className="text-xs text-gray-400 mt-1">Minimum 8 characters</p>
+            <p className="text-xs text-gray-400 mt-1">{t("passwordHint")}</p>
           </div>
 
           <button
@@ -115,14 +121,14 @@ export default function SignupPage() {
             disabled={loading}
             className="w-full py-2 px-4 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {loading ? "Creating account..." : "Sign Up"}
+            {loading ? t("creatingAccount") : t("signupButton")}
           </button>
         </form>
 
         <p className="mt-6 text-center text-sm text-gray-500">
-          Already have an account?{" "}
+          {t("hasAccount")}{" "}
           <Link href="/login" className="text-blue-600 hover:text-blue-500 font-medium">
-            Login
+            {t("loginLink")}
           </Link>
         </p>
       </div>

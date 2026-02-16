@@ -3,10 +3,13 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
+import { useTranslations } from "@/lib/i18n";
 
 export default function ProfilePage() {
   const { user } = useAuth();
   const router = useRouter();
+  const t = useTranslations("profile");
+  const tc = useTranslations("common");
 
   useEffect(() => {
     if (user?.frappe_employee_id) {
@@ -14,13 +17,13 @@ export default function ProfilePage() {
     }
   }, [user, router]);
 
-  if (!user) return <p className="text-gray-500">Loading...</p>;
+  if (!user) return <p className="text-gray-500">{tc("loading")}</p>;
 
   // Fallback if employee not linked
   if (!user.frappe_employee_id) {
     return (
       <div>
-        <h1 className="text-2xl font-bold text-gray-900 mb-6">My Profile</h1>
+        <h1 className="text-2xl font-bold text-gray-900 mb-6">{t("title")}</h1>
         <div className="bg-white rounded-lg shadow p-6">
           <div className="flex items-center gap-4 mb-6">
             <div className="h-16 w-16 rounded-full bg-blue-100 flex items-center justify-center text-2xl font-bold text-blue-600">
@@ -35,12 +38,12 @@ export default function ProfilePage() {
             </div>
           </div>
           <p className="text-sm text-gray-500">
-            Your account is not linked to an employee record. Please contact your administrator.
+            {t("notLinked")}
           </p>
         </div>
       </div>
     );
   }
 
-  return <p className="text-gray-500">Redirecting to your profile...</p>;
+  return <p className="text-gray-500">{t("redirecting")}</p>;
 }

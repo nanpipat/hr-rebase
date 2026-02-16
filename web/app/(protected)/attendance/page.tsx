@@ -14,6 +14,7 @@ import {
 } from "@/lib/api";
 import Badge, { statusVariant } from "@/components/ui/Badge";
 import { useToast } from "@/components/ui/Toast";
+import { useTranslations } from "@/lib/i18n";
 
 // ── Types ────────────────────────────────────────────────────
 
@@ -82,11 +83,13 @@ function TodayCard({
   onCheckin,
   onCheckout,
   loading,
+  t,
 }: {
   data: TodayCheckinData | null;
   onCheckin: () => void;
   onCheckout: () => void;
   loading: boolean;
+  t: (key: string) => string;
 }) {
   const [elapsed, setElapsed] = useState("");
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -125,7 +128,7 @@ function TodayCard({
 
   return (
     <div className="bg-white rounded-lg shadow p-6 mb-6">
-      <h2 className="text-base font-semibold text-gray-900 mb-4">Today</h2>
+      <h2 className="text-base font-semibold text-gray-900 mb-4">{t("today")}</h2>
 
       <div className="flex flex-col md:flex-row md:items-center gap-6">
         {/* Timer / Status circle */}
@@ -142,19 +145,19 @@ function TodayCard({
             {data?.is_checked_in ? (
               <>
                 <span className="text-2xl font-mono font-bold text-green-700">{elapsed}</span>
-                <span className="text-xs text-green-600 mt-1">Working</span>
+                <span className="text-xs text-green-600 mt-1">{t("working")}</span>
               </>
             ) : hasCheckedOut ? (
               <>
                 <span className="text-2xl font-bold text-gray-700">
                   {formatHours(data!.working_hours)}
                 </span>
-                <span className="text-xs text-gray-500 mt-1">Done for today</span>
+                <span className="text-xs text-gray-500 mt-1">{t("doneForToday")}</span>
               </>
             ) : (
               <>
                 <span className="text-2xl font-bold text-blue-700">--:--</span>
-                <span className="text-xs text-blue-600 mt-1">Not checked in</span>
+                <span className="text-xs text-blue-600 mt-1">{t("notCheckedIn")}</span>
               </>
             )}
           </div>
@@ -164,28 +167,28 @@ function TodayCard({
         <div className="flex-1 space-y-3">
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <p className="text-xs text-gray-500">Check-in</p>
+              <p className="text-xs text-gray-500">{t("checkin")}</p>
               <p className="text-sm font-medium text-gray-900">{formatTime(data?.first_in ?? null)}</p>
             </div>
             <div>
-              <p className="text-xs text-gray-500">Check-out</p>
+              <p className="text-xs text-gray-500">{t("checkout")}</p>
               <p className="text-sm font-medium text-gray-900">{formatTime(data?.last_out ?? null)}</p>
             </div>
             <div>
-              <p className="text-xs text-gray-500">Working Hours</p>
+              <p className="text-xs text-gray-500">{t("workingHours")}</p>
               <p className="text-sm font-medium text-gray-900">
                 {data ? formatHours(data.working_hours) : "--"}
               </p>
             </div>
             <div>
-              <p className="text-xs text-gray-500">Status</p>
+              <p className="text-xs text-gray-500">{t("statusLabel")}</p>
               <p className="text-sm font-medium">
                 {data?.is_checked_in ? (
-                  <span className="text-green-600">Checked In</span>
+                  <span className="text-green-600">{t("checkedIn")}</span>
                 ) : hasCheckedOut ? (
-                  <span className="text-gray-600">Checked Out</span>
+                  <span className="text-gray-600">{t("checkedOut")}</span>
                 ) : (
-                  <span className="text-blue-600">Not Checked In</span>
+                  <span className="text-blue-600">{t("notCheckedInStatus")}</span>
                 )}
               </p>
             </div>
@@ -200,7 +203,7 @@ function TodayCard({
               disabled={loading}
               className="w-full md:w-auto px-8 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 font-medium text-sm transition-colors"
             >
-              {loading ? "Checking in..." : "Check In"}
+              {loading ? t("checkingIn") : t("checkInButton")}
             </button>
           ) : data?.is_checked_in ? (
             <button
@@ -208,14 +211,14 @@ function TodayCard({
               disabled={loading}
               className="w-full md:w-auto px-8 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 font-medium text-sm transition-colors"
             >
-              {loading ? "Checking out..." : "Check Out"}
+              {loading ? t("checkingOut") : t("checkOutButton")}
             </button>
           ) : (
             <button
               disabled
               className="w-full md:w-auto px-8 py-3 bg-gray-200 text-gray-500 rounded-lg font-medium text-sm cursor-not-allowed"
             >
-              Checked Out
+              {t("checkedOutButton")}
             </button>
           )}
         </div>
@@ -226,14 +229,14 @@ function TodayCard({
 
 // ── Summary Cards ────────────────────────────────────────────
 
-function SummaryCards({ summary }: { summary: AttendanceSummary | null }) {
+function SummaryCards({ summary, t }: { summary: AttendanceSummary | null; t: (key: string) => string }) {
   if (!summary) return null;
 
   const cards = [
-    { label: "Total Days", value: summary.total_days, color: "text-gray-900" },
-    { label: "Present", value: summary.present, color: "text-green-600" },
-    { label: "Absent", value: summary.absent, color: "text-red-600" },
-    { label: "On Leave", value: summary.on_leave, color: "text-yellow-600" },
+    { label: t("totalDays"), value: summary.total_days, color: "text-gray-900" },
+    { label: t("present"), value: summary.present, color: "text-green-600" },
+    { label: t("absent"), value: summary.absent, color: "text-red-600" },
+    { label: t("onLeave"), value: summary.on_leave, color: "text-yellow-600" },
   ];
 
   return (
@@ -251,6 +254,8 @@ function SummaryCards({ summary }: { summary: AttendanceSummary | null }) {
 // ── Check-in History ─────────────────────────────────────────
 
 function CheckinHistorySection() {
+  const t = useTranslations("attendance");
+  const tc = useTranslations("common");
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth());
@@ -294,7 +299,7 @@ function CheckinHistorySection() {
   return (
     <div className="bg-white rounded-lg shadow mb-6">
       <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-        <h2 className="text-base font-semibold text-gray-900">Check-in History</h2>
+        <h2 className="text-base font-semibold text-gray-900">{t("checkinHistory")}</h2>
         <div className="flex items-center gap-3">
           <button
             onClick={prevMonth}
@@ -321,20 +326,20 @@ function CheckinHistorySection() {
 
       <div className="overflow-x-auto">
         {loading ? (
-          <div className="px-6 py-8 text-center text-gray-400 text-sm">Loading...</div>
+          <div className="px-6 py-8 text-center text-gray-400 text-sm">{tc("loading")}</div>
         ) : days.length === 0 ? (
           <div className="px-6 py-8 text-center text-gray-400 text-sm">
-            No check-in records for {monthLabel(year, month)}
+            {t("noCheckinRecords", { month: monthLabel(year, month) })}
           </div>
         ) : (
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">In</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Out</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Hours</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Logs</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t("dateCol")}</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t("inCol")}</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t("outCol")}</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t("hoursCol")}</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t("logsCol")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
@@ -370,6 +375,8 @@ function CheckinHistorySection() {
 export default function AttendancePage() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const t = useTranslations("attendance");
+  const tc = useTranslations("common");
 
   const [todayData, setTodayData] = useState<TodayCheckinData | null>(null);
   const [summary, setSummary] = useState<AttendanceSummary | null>(null);
@@ -409,12 +416,12 @@ export default function AttendancePage() {
     setActionLoading(true);
     try {
       await checkin();
-      toast("Checked in successfully", "success");
+      toast(t("checkedInSuccess"), "success");
       // Refresh today's data
       const res = await getTodayCheckin().catch(() => ({ data: null }));
       setTodayData(res.data as TodayCheckinData | null);
     } catch (err) {
-      toast(err instanceof Error ? err.message : "Failed to check in", "error");
+      toast(err instanceof Error ? err.message : t("failedCheckIn"), "error");
     } finally {
       setActionLoading(false);
     }
@@ -424,11 +431,11 @@ export default function AttendancePage() {
     setActionLoading(true);
     try {
       await checkout();
-      toast("Checked out successfully", "success");
+      toast(t("checkedOutSuccess"), "success");
       const res = await getTodayCheckin().catch(() => ({ data: null }));
       setTodayData(res.data as TodayCheckinData | null);
     } catch (err) {
-      toast(err instanceof Error ? err.message : "Failed to check out", "error");
+      toast(err instanceof Error ? err.message : t("failedCheckOut"), "error");
     } finally {
       setActionLoading(false);
     }
@@ -441,10 +448,10 @@ export default function AttendancePage() {
       await submitAttendanceRequest(form);
       setShowForm(false);
       setForm({ attendance_date: "", reason: "", status: "Present" });
-      toast("Correction request submitted", "success");
+      toast(t("correctionSubmitted"), "success");
       fetchAll();
     } catch (err) {
-      toast(err instanceof Error ? err.message : "Failed to submit request", "error");
+      toast(err instanceof Error ? err.message : t("failedSubmit"), "error");
     } finally {
       setSubmitting(false);
     }
@@ -453,26 +460,26 @@ export default function AttendancePage() {
   async function handleApproveRequest(id: string, action: "approve" | "reject") {
     try {
       await approveAttendanceRequest(id, action);
-      toast(`Request ${action}d`, "success");
+      toast(t("requestApproved", { action }), "success");
       fetchAll();
     } catch {
-      toast(`Failed to ${action} request`, "error");
+      toast(t("failedAction", { action }), "error");
     }
   }
 
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Attendance</h1>
+        <h1 className="text-2xl font-bold text-gray-900">{t("title")}</h1>
         <button
           onClick={() => setShowForm(!showForm)}
           className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm"
         >
-          {showForm ? "Cancel" : "Request Correction"}
+          {showForm ? tc("cancel") : t("requestCorrection")}
         </button>
       </div>
 
-      {pageLoading && <p className="text-gray-500 mb-6">Loading...</p>}
+      {pageLoading && <p className="text-gray-500 mb-6">{tc("loading")}</p>}
 
       {/* Today's Check-in Card */}
       {!pageLoading && (
@@ -481,11 +488,12 @@ export default function AttendancePage() {
           onCheckin={handleCheckin}
           onCheckout={handleCheckout}
           loading={actionLoading}
+          t={t}
         />
       )}
 
       {/* Monthly Summary */}
-      <SummaryCards summary={summary} />
+      <SummaryCards summary={summary} t={t} />
 
       {/* Check-in History */}
       <CheckinHistorySection />
@@ -496,10 +504,10 @@ export default function AttendancePage() {
           onSubmit={handleSubmitRequest}
           className="bg-white rounded-lg shadow p-6 mb-6 space-y-4"
         >
-          <h3 className="text-lg font-semibold text-gray-900">Attendance Correction Request</h3>
+          <h3 className="text-lg font-semibold text-gray-900">{t("correctionRequest")}</h3>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">{t("dateLabel")}</label>
               <input
                 type="date"
                 value={form.attendance_date}
@@ -509,20 +517,20 @@ export default function AttendancePage() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">{t("statusLabel")}</label>
               <select
                 value={form.status}
                 onChange={(e) => setForm({ ...form, status: e.target.value })}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md"
               >
-                <option value="Present">Present</option>
-                <option value="Work From Home">Work From Home</option>
-                <option value="Half Day">Half Day</option>
+                <option value="Present">{t("presentOption")}</option>
+                <option value="Work From Home">{t("wfhOption")}</option>
+                <option value="Half Day">{t("halfDayOption")}</option>
               </select>
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Reason</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">{t("reasonLabel")}</label>
             <textarea
               value={form.reason}
               onChange={(e) => setForm({ ...form, reason: e.target.value })}
@@ -536,7 +544,7 @@ export default function AttendancePage() {
             disabled={submitting}
             className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 text-sm"
           >
-            {submitting ? "Submitting..." : "Submit Request"}
+            {submitting ? t("submitting") : t("submitRequest")}
           </button>
         </form>
       )}
@@ -544,28 +552,28 @@ export default function AttendancePage() {
       {/* Attendance Requests */}
       {requests.length > 0 && (
         <div className="mb-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Attendance Requests</h2>
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">{t("attendanceRequests")}</h2>
           <div className="bg-white rounded-lg shadow overflow-hidden">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
                   {canApprove && (
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Employee
+                      {tc("employee")}
                     </th>
                   )}
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Date
+                    {tc("date")}
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Reason
+                    {tc("reason")}
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Status
+                    {tc("status")}
                   </th>
                   {canApprove && (
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Actions
+                      {tc("actions")}
                     </th>
                   )}
                 </tr>
@@ -597,13 +605,13 @@ export default function AttendancePage() {
                               onClick={() => handleApproveRequest(String(req.name), "approve")}
                               className="text-green-600 hover:text-green-800 text-xs font-medium"
                             >
-                              Approve
+                              {tc("approve")}
                             </button>
                             <button
                               onClick={() => handleApproveRequest(String(req.name), "reject")}
                               className="text-red-600 hover:text-red-800 text-xs font-medium"
                             >
-                              Reject
+                              {tc("reject")}
                             </button>
                           </>
                         )}

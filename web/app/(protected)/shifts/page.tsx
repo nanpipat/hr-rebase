@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/lib/auth-context";
+import { useTranslations } from "@/lib/i18n";
 import {
   getShiftTypes,
   createShiftType,
@@ -172,6 +173,8 @@ function CreateShiftTypeForm({
   onSubmit: (data: { name: string; start_time: string; end_time: string; late_entry_grace_period: number; early_exit_grace_period: number }) => Promise<void>;
   onCancel: () => void;
 }) {
+  const t = useTranslations("shifts");
+  const tc = useTranslations("common");
   const [form, setForm] = useState({
     name: "",
     start_time: "08:00",
@@ -197,10 +200,10 @@ function CreateShiftTypeForm({
 
   return (
     <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow p-6 mb-6 space-y-4">
-      <h3 className="text-sm font-semibold text-gray-900">New Shift Type</h3>
+      <h3 className="text-sm font-semibold text-gray-900">{t("newShiftType")}</h3>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Name</label>
+          <label className="block text-xs font-medium text-gray-600 mb-1">{t("nameLabel")}</label>
           <input
             type="text"
             value={form.name}
@@ -210,7 +213,7 @@ function CreateShiftTypeForm({
           />
         </div>
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Start Time</label>
+          <label className="block text-xs font-medium text-gray-600 mb-1">{t("startTime")}</label>
           <input
             type="time"
             value={form.start_time}
@@ -220,7 +223,7 @@ function CreateShiftTypeForm({
           />
         </div>
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">End Time</label>
+          <label className="block text-xs font-medium text-gray-600 mb-1">{t("endTime")}</label>
           <input
             type="time"
             value={form.end_time}
@@ -230,7 +233,7 @@ function CreateShiftTypeForm({
           />
         </div>
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Late Grace (min)</label>
+          <label className="block text-xs font-medium text-gray-600 mb-1">{t("lateGrace")}</label>
           <input
             type="number"
             value={form.late_entry_grace_period}
@@ -240,7 +243,7 @@ function CreateShiftTypeForm({
           />
         </div>
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Early Grace (min)</label>
+          <label className="block text-xs font-medium text-gray-600 mb-1">{t("earlyGrace")}</label>
           <input
             type="number"
             value={form.early_exit_grace_period}
@@ -256,7 +259,7 @@ function CreateShiftTypeForm({
           disabled={submitting}
           className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm font-medium disabled:opacity-50"
         >
-          {submitting ? "Creating..." : "Create"}
+          {submitting ? t("creating") : tc("create")}
         </button>
         <button
           type="button"
@@ -283,6 +286,8 @@ function AssignShiftForm({
   onSubmit: (data: { employee_id: string; shift_type: string; start_date: string; end_date?: string }) => Promise<void>;
   onCancel: () => void;
 }) {
+  const t = useTranslations("shifts");
+  const tc = useTranslations("common");
   const [form, setForm] = useState({
     employee_id: "",
     shift_type: "",
@@ -308,17 +313,17 @@ function AssignShiftForm({
 
   return (
     <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow p-6 mb-6 space-y-4">
-      <h3 className="text-sm font-semibold text-gray-900">Assign Shift</h3>
+      <h3 className="text-sm font-semibold text-gray-900">{t("assignShift")}</h3>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Employee</label>
+          <label className="block text-xs font-medium text-gray-600 mb-1">{t("employeeLabel")}</label>
           <select
             value={form.employee_id}
             onChange={(e) => setForm({ ...form, employee_id: e.target.value })}
             className="w-full border rounded-md px-3 py-2 text-sm"
             required
           >
-            <option value="">Select...</option>
+            <option value="">{tc("select")}</option>
             {employees.map((emp) => (
               <option key={emp.employee_id} value={emp.employee_id}>
                 {emp.employee_name} ({emp.employee_id})
@@ -327,14 +332,14 @@ function AssignShiftForm({
           </select>
         </div>
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Shift Type</label>
+          <label className="block text-xs font-medium text-gray-600 mb-1">{t("shiftTypeLabel")}</label>
           <select
             value={form.shift_type}
             onChange={(e) => setForm({ ...form, shift_type: e.target.value })}
             className="w-full border rounded-md px-3 py-2 text-sm"
             required
           >
-            <option value="">Select...</option>
+            <option value="">{tc("select")}</option>
             {shiftTypes.map((st) => (
               <option key={st.name} value={st.name}>
                 {st.name} ({formatTime(st.start_time)} - {formatTime(st.end_time)})
@@ -343,7 +348,7 @@ function AssignShiftForm({
           </select>
         </div>
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Start Date</label>
+          <label className="block text-xs font-medium text-gray-600 mb-1">{t("startDate")}</label>
           <input
             type="date"
             value={form.start_date}
@@ -353,7 +358,7 @@ function AssignShiftForm({
           />
         </div>
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">End Date (optional)</label>
+          <label className="block text-xs font-medium text-gray-600 mb-1">{t("endDate")}</label>
           <input
             type="date"
             value={form.end_date}
@@ -368,14 +373,14 @@ function AssignShiftForm({
           disabled={submitting}
           className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm font-medium disabled:opacity-50"
         >
-          {submitting ? "Assigning..." : "Assign"}
+          {submitting ? t("assigning") : t("assign")}
         </button>
         <button
           type="button"
           onClick={onCancel}
           className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 text-sm"
         >
-          Cancel
+          {tc("cancel")}
         </button>
       </div>
     </form>
@@ -386,6 +391,8 @@ function AssignShiftForm({
 
 function AutoAttendanceSection() {
   const { toast } = useToast();
+  const t = useTranslations("shifts");
+  const tc = useTranslations("common");
   const [date, setDate] = useState(() => {
     const d = new Date();
     d.setDate(d.getDate() - 1);
@@ -411,11 +418,11 @@ function AutoAttendanceSection() {
   }
 
   return (
-    <SectionCard title="Auto Attendance">
+    <SectionCard title={t("autoAttendance")}>
       <div className="space-y-4">
         <div className="flex items-end gap-4">
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Date</label>
+            <label className="block text-xs font-medium text-gray-600 mb-1">{tc("date")}</label>
             <input
               type="date"
               value={date}
@@ -428,11 +435,11 @@ function AutoAttendanceSection() {
             disabled={processing}
             className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 text-sm font-medium disabled:opacity-50"
           >
-            {processing ? "Processing..." : "Process Attendance"}
+            {processing ? t("processingAttendance") : t("processAttendance")}
           </button>
         </div>
         <p className="text-xs text-gray-500">
-          Generates Attendance records from check-in data matched against shift assignments for the selected date.
+          {t("autoAttendanceDesc")}
         </p>
 
         {result && (
@@ -440,32 +447,32 @@ function AutoAttendanceSection() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <div className="text-center p-2 bg-green-50 rounded">
                 <p className="text-lg font-bold text-green-700">{result.processed_count}</p>
-                <p className="text-xs text-green-600">Processed</p>
+                <p className="text-xs text-green-600">{t("processed")}</p>
               </div>
               <div className="text-center p-2 bg-gray-50 rounded">
                 <p className="text-lg font-bold text-gray-700">{result.skipped_count}</p>
-                <p className="text-xs text-gray-600">Skipped</p>
+                <p className="text-xs text-gray-600">{t("skipped")}</p>
               </div>
               <div className="text-center p-2 bg-orange-50 rounded">
                 <p className="text-lg font-bold text-orange-700">{result.late_count}</p>
-                <p className="text-xs text-orange-600">Late</p>
+                <p className="text-xs text-orange-600">{t("late")}</p>
               </div>
               <div className="text-center p-2 bg-red-50 rounded">
                 <p className="text-lg font-bold text-red-700">{result.error_count}</p>
-                <p className="text-xs text-red-600">Errors</p>
+                <p className="text-xs text-red-600">{t("errors")}</p>
               </div>
             </div>
 
             {result.created.length > 0 && (
               <div>
-                <p className="text-xs font-medium text-gray-700 mb-1">Created:</p>
+                <p className="text-xs font-medium text-gray-700 mb-1">{t("createdLabel")}</p>
                 <div className="text-xs text-gray-600 space-y-0.5">
                   {result.created.map((c, i) => (
                     <div key={i} className="flex items-center gap-2">
                       <span>{c.employee_name as string}</span>
                       <Badge variant={statusVariant(c.status as string)}>{c.status as string}</Badge>
-                      {Boolean(c.late_entry) && <span className="text-orange-600">Late</span>}
-                      {Boolean(c.early_exit) && <span className="text-orange-600">Early Exit</span>}
+                      {Boolean(c.late_entry) && <span className="text-orange-600">{t("late")}</span>}
+                      {Boolean(c.early_exit) && <span className="text-orange-600">{t("earlyExit")}</span>}
                       <span className="text-gray-400">{c.working_hours as number}h</span>
                     </div>
                   ))}
@@ -609,6 +616,8 @@ function RosterView({ assignments }: { assignments: ShiftAssignment[] }) {
 
 function AdminShiftView() {
   const { toast } = useToast();
+  const t = useTranslations("shifts");
+  const tc = useTranslations("common");
   const [shiftTypes, setShiftTypes] = useState<ShiftType[]>([]);
   const [assignments, setAssignments] = useState<ShiftAssignment[]>([]);
   const [requests, setRequests] = useState<ShiftRequest[]>([]);
@@ -656,11 +665,11 @@ function AdminShiftView() {
   }) {
     try {
       await createShiftType(data);
-      toast("Shift type created", "success");
+      toast(t("shiftTypeCreated"), "success");
       setShowTypeForm(false);
       fetchData();
     } catch (err) {
-      toast(err instanceof Error ? err.message : "Failed to create shift type", "error");
+      toast(err instanceof Error ? err.message : t("failedCreateType"), "error");
     }
   }
 
@@ -672,31 +681,31 @@ function AdminShiftView() {
   }) {
     try {
       await assignShift(data);
-      toast("Shift assigned", "success");
+      toast(t("shiftAssigned"), "success");
       setShowAssignForm(false);
       fetchData();
     } catch (err) {
-      toast(err instanceof Error ? err.message : "Failed to assign shift", "error");
+      toast(err instanceof Error ? err.message : t("failedAssign"), "error");
     }
   }
 
   async function handleUnassign(id: string) {
     try {
       await unassignShift(id);
-      toast("Shift unassigned", "success");
+      toast(t("shiftUnassigned"), "success");
       fetchData();
     } catch (err) {
-      toast(err instanceof Error ? err.message : "Failed to unassign shift", "error");
+      toast(err instanceof Error ? err.message : t("failedUnassign"), "error");
     }
   }
 
   async function handleApprove(id: string, action: "approve" | "reject") {
     try {
       await approveShiftRequest(id, action);
-      toast(`Shift request ${action}d`, "success");
+      toast(t("requestAction", { action }), "success");
       fetchData();
     } catch (err) {
-      toast(err instanceof Error ? err.message : `Failed to ${action} request`, "error");
+      toast(err instanceof Error ? err.message : t("failedRequestAction", { action }), "error");
     }
   }
 
@@ -706,18 +715,18 @@ function AdminShiftView() {
     <div className="space-y-6">
       {/* Stat Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
-        <StatCard label="Shift Types" value={shiftTypes.length} color="text-blue-600" />
+        <StatCard label={t("shiftTypes")} value={shiftTypes.length} color="text-blue-600" />
         <StatCard
-          label="Active Assignments"
+          label={t("activeAssignments")}
           value={assignments.length}
           color="text-green-600"
-          subtitle={`${new Set(assignments.map((a) => a.employee)).size} employees`}
+          subtitle={`${new Set(assignments.map((a) => a.employee)).size} ${t("employees")}`}
         />
         <StatCard
-          label="Pending Requests"
+          label={t("pendingRequests")}
           value={pendingRequests.length}
           color={pendingRequests.length > 0 ? "text-orange-600" : "text-gray-900"}
-          subtitle={pendingRequests.length > 0 ? "Awaiting review" : "All clear"}
+          subtitle={pendingRequests.length > 0 ? tc("awaitingApproval") : tc("allClear")}
         />
       </div>
 
@@ -736,7 +745,7 @@ function AdminShiftView() {
 
       {/* Pending Requests */}
       {pendingRequests.length > 0 && (
-        <SectionCard title={`Pending Requests (${pendingRequests.length})`}>
+        <SectionCard title={`${t("pendingRequests")} (${pendingRequests.length})`}>
           <div className="space-y-3">
             {pendingRequests.map((r) => (
               <div
@@ -746,7 +755,7 @@ function AdminShiftView() {
                 <div>
                   <p className="text-sm font-medium text-gray-900">{r.employee_name}</p>
                   <p className="text-xs text-gray-500">
-                    Requesting <span className="font-medium">{r.shift_type}</span> from{" "}
+                    {t("requesting_shift")} <span className="font-medium">{r.shift_type}</span> {tc("from")}{" "}
                     {formatDate(r.from_date)} to {formatDate(r.to_date)}
                   </p>
                 </div>
@@ -755,13 +764,13 @@ function AdminShiftView() {
                     onClick={() => handleApprove(r.name, "approve")}
                     className="px-3 py-1 bg-green-600 text-white rounded text-xs font-medium hover:bg-green-700"
                   >
-                    Approve
+                    {tc("approve")}
                   </button>
                   <button
                     onClick={() => handleApprove(r.name, "reject")}
                     className="px-3 py-1 bg-red-600 text-white rounded text-xs font-medium hover:bg-red-700"
                   >
-                    Reject
+                    {tc("reject")}
                   </button>
                 </div>
               </div>
@@ -779,27 +788,27 @@ function AdminShiftView() {
               onClick={() => setShowTypeForm(true)}
               className="text-sm text-blue-600 hover:text-blue-800 font-medium"
             >
-              + Add Type
+              {t("addType")}
             </button>
           )
         }
       >
         {shiftTypes.length === 0 ? (
           <EmptyState
-            title="No shift types"
-            description="Create shift types to get started"
-            action={{ label: "Add Shift Type", onClick: () => setShowTypeForm(true) }}
+            title={t("noShiftTypes")}
+            description={t("createShiftTypesHint")}
+            action={{ label: t("addShiftType"), onClick: () => setShowTypeForm(true) }}
           />
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">{t("nameLabel")}</th>
                   <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Start</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">End</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Late Grace</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Early Grace</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">{t("endTime")}</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">{t("lateGrace")}</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">{t("earlyGrace")}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
@@ -834,28 +843,28 @@ function AdminShiftView() {
               onClick={() => setShowAssignForm(true)}
               className="text-sm text-blue-600 hover:text-blue-800 font-medium"
             >
-              + Assign Shift
+              {t("addAssignShift")}
             </button>
           )
         }
       >
         {assignments.length === 0 ? (
           <EmptyState
-            title="No assignments"
-            description="Assign shifts to employees to manage their schedule"
-            action={{ label: "Assign Shift", onClick: () => setShowAssignForm(true) }}
+            title={t("noAssignments")}
+            description={t("assignShiftsHint")}
+            action={{ label: t("assignShiftButton"), onClick: () => setShowAssignForm(true) }}
           />
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Employee</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">{t("employeeLabel")}</th>
                   <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Shift</th>
                   <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">From</th>
                   <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">To</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                  <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">{tc("status")}</th>
+                  <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">{tc("actions")}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
@@ -868,7 +877,7 @@ function AdminShiftView() {
                       </span>
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-700">{formatDate(a.start_date)}</td>
-                    <td className="px-4 py-3 text-sm text-gray-700">{a.end_date ? formatDate(a.end_date) : "Ongoing"}</td>
+                    <td className="px-4 py-3 text-sm text-gray-700">{a.end_date ? formatDate(a.end_date) : t("ongoing")}</td>
                     <td className="px-4 py-3">
                       <Badge variant={statusVariant(a.status)}>{a.status}</Badge>
                     </td>
@@ -877,7 +886,7 @@ function AdminShiftView() {
                         onClick={() => handleUnassign(a.name)}
                         className="text-xs text-red-600 hover:text-red-800"
                       >
-                        Remove
+                        {t("remove")}
                       </button>
                     </td>
                   </tr>
@@ -893,16 +902,16 @@ function AdminShiftView() {
 
       {/* All Requests */}
       {requests.length > 0 && (
-        <SectionCard title="All Shift Requests">
+        <SectionCard title={t("allShiftRequests")}>
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Employee</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">{t("employeeLabel")}</th>
                   <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Shift</th>
                   <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">From</th>
                   <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">To</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">{tc("status")}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
@@ -934,6 +943,8 @@ function AdminShiftView() {
 
 function EmployeeShiftView() {
   const { toast } = useToast();
+  const t = useTranslations("shifts");
+  const tc = useTranslations("common");
   const [myShift, setMyShift] = useState<MyShiftData | null>(null);
   const [shiftTypes, setShiftTypes] = useState<ShiftType[]>([]);
   const [requests, setRequests] = useState<ShiftRequest[]>([]);
@@ -970,12 +981,12 @@ function EmployeeShiftView() {
     setSubmitting(true);
     try {
       await createShiftRequest(form);
-      toast("Shift request submitted", "success");
+      toast(t("requestSubmitted"), "success");
       setShowRequestForm(false);
       setForm({ shift_type: "", from_date: new Date().toISOString().slice(0, 10), to_date: "" });
       fetchData();
     } catch (err) {
-      toast(err instanceof Error ? err.message : "Failed to submit request", "error");
+      toast(err instanceof Error ? err.message : t("failedRequest"), "error");
     } finally {
       setSubmitting(false);
     }
@@ -986,7 +997,7 @@ function EmployeeShiftView() {
   return (
     <div className="space-y-6">
       {/* Current Shift */}
-      <SectionCard title="My Current Shift">
+      <SectionCard title={t("myCurrentShift")}>
         {myShift?.has_shift ? (
           <div className="flex items-center gap-6">
             <div className="w-14 h-14 rounded-full bg-blue-100 flex items-center justify-center">
@@ -1001,29 +1012,29 @@ function EmployeeShiftView() {
               </p>
               <p className="text-xs text-gray-400 mt-1">
                 {formatDate(myShift.assignment_start || "")}
-                {myShift.assignment_end ? ` to ${formatDate(myShift.assignment_end)}` : " (ongoing)"}
+                {myShift.assignment_end ? ` ${tc("to")} ${formatDate(myShift.assignment_end)}` : ` (${t("ongoing")})`}
               </p>
             </div>
           </div>
         ) : (
-          <EmptyState title="No shift assigned" description="You don't have a shift assignment yet" />
+          <EmptyState title={t("noShiftAssignedEmployee")} description={t("noShiftAssignedEmployeeDesc")} />
         )}
       </SectionCard>
 
       {/* Request Shift Change */}
       {showRequestForm ? (
         <form onSubmit={handleSubmitRequest} className="bg-white rounded-lg shadow p-6 space-y-4">
-          <h3 className="text-sm font-semibold text-gray-900">Request Shift Change</h3>
+          <h3 className="text-sm font-semibold text-gray-900">{t("requestChange")}</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Shift Type</label>
+              <label className="block text-xs font-medium text-gray-600 mb-1">{t("shiftTypeLabel")}</label>
               <select
                 value={form.shift_type}
                 onChange={(e) => setForm({ ...form, shift_type: e.target.value })}
                 className="w-full border rounded-md px-3 py-2 text-sm"
                 required
               >
-                <option value="">Select...</option>
+                <option value="">{tc("select")}</option>
                 {shiftTypes.map((st) => (
                   <option key={st.name} value={st.name}>
                     {st.name} ({formatTime(st.start_time)} - {formatTime(st.end_time)})
@@ -1032,7 +1043,7 @@ function EmployeeShiftView() {
               </select>
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">From Date</label>
+              <label className="block text-xs font-medium text-gray-600 mb-1">{t("fromDate")}</label>
               <input
                 type="date"
                 value={form.from_date}
@@ -1042,7 +1053,7 @@ function EmployeeShiftView() {
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">To Date</label>
+              <label className="block text-xs font-medium text-gray-600 mb-1">{t("toDate")}</label>
               <input
                 type="date"
                 value={form.to_date}
@@ -1058,14 +1069,14 @@ function EmployeeShiftView() {
               disabled={submitting}
               className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm font-medium disabled:opacity-50"
             >
-              {submitting ? "Submitting..." : "Submit Request"}
+              {submitting ? t("submittingRequest") : t("submitRequestBtn")}
             </button>
             <button
               type="button"
               onClick={() => setShowRequestForm(false)}
               className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 text-sm"
             >
-              Cancel
+              {tc("cancel")}
             </button>
           </div>
         </form>
@@ -1075,7 +1086,7 @@ function EmployeeShiftView() {
             onClick={() => setShowRequestForm(true)}
             className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm font-medium"
           >
-            Request Shift Change
+            {t("requestChange")}
           </button>
         </div>
       )}
@@ -1083,7 +1094,7 @@ function EmployeeShiftView() {
       {/* My Requests */}
       <SectionCard title="My Shift Requests">
         {requests.length === 0 ? (
-          <EmptyState title="No requests" description="You haven't submitted any shift change requests" />
+          <EmptyState title={t("noRequests")} description={t("noRequestsDesc")} />
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
@@ -1092,7 +1103,7 @@ function EmployeeShiftView() {
                   <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Shift</th>
                   <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">From</th>
                   <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">To</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">{tc("status")}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
@@ -1123,13 +1134,14 @@ function EmployeeShiftView() {
 
 export default function ShiftsPage() {
   const { user } = useAuth();
+  const t = useTranslations("shifts");
   const isAdminOrHR = user?.role === "admin" || user?.role === "hr";
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900">
-          {isAdminOrHR ? "Shift Management" : "My Shifts"}
+          {isAdminOrHR ? t("managementTitle") : t("myTitle")}
         </h1>
       </div>
       {isAdminOrHR ? <AdminShiftView /> : <EmployeeShiftView />}

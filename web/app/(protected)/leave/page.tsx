@@ -12,6 +12,7 @@ import {
 import Badge, { statusVariant } from "@/components/ui/Badge";
 import EmptyState from "@/components/ui/EmptyState";
 import { useToast } from "@/components/ui/Toast";
+import { useTranslations } from "@/lib/i18n";
 
 // ── Helpers ──────────────────────────────────────────────────
 
@@ -97,11 +98,11 @@ function StatCard({
 
 const balanceColors = ["bg-blue-500", "bg-emerald-500", "bg-amber-500", "bg-purple-500", "bg-pink-500"];
 
-function LeaveBalanceSection({ balance }: { balance: LeaveRecord[] }) {
+function LeaveBalanceSection({ balance, t }: { balance: LeaveRecord[]; t: (key: string, v?: Record<string, string | number>) => string }) {
   if (balance.length === 0) return null;
 
   return (
-    <SectionCard title="Leave Balance">
+    <SectionCard title={t("leaveBalance")}>
       <div className="space-y-4">
         {balance.map((b, i) => {
           const remaining = Number(b.remaining || 0);
@@ -118,9 +119,9 @@ function LeaveBalanceSection({ balance }: { balance: LeaveRecord[] }) {
                 </span>
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-bold text-gray-900">{remaining}</span>
-                  <span className="text-xs text-gray-400">/ {total} days</span>
+                  <span className="text-xs text-gray-400">/ {total} {t("daysCol")}</span>
                   {isLow && (
-                    <span className="text-xs text-amber-600 font-medium">Low</span>
+                    <span className="text-xs text-amber-600 font-medium">{t("low")}</span>
                   )}
                 </div>
               </div>
@@ -132,7 +133,7 @@ function LeaveBalanceSection({ balance }: { balance: LeaveRecord[] }) {
                   style={{ width: `${pct}%` }}
                 />
               </div>
-              <p className="text-xs text-gray-400 mt-0.5">Used: {used} days</p>
+              <p className="text-xs text-gray-400 mt-0.5">{t("usedDays", { count: used })}</p>
             </div>
           );
         })}
@@ -146,14 +147,18 @@ function LeaveBalanceSection({ balance }: { balance: LeaveRecord[] }) {
 function PendingApprovalQueue({
   pendingLeaves,
   onApprove,
+  t,
+  tc,
 }: {
   pendingLeaves: LeaveRecord[];
   onApprove: (id: string, status: "Approved" | "Rejected") => void;
+  t: (key: string, v?: Record<string, string | number>) => string;
+  tc: (key: string) => string;
 }) {
   if (pendingLeaves.length === 0) return null;
 
   return (
-    <SectionCard title={`Pending Approvals (${pendingLeaves.length})`}>
+    <SectionCard title={`${t("pendingApprovals")} (${pendingLeaves.length})`}>
       <div className="space-y-3">
         {pendingLeaves.map((leave, i) => (
           <div
@@ -191,13 +196,13 @@ function PendingApprovalQueue({
                   onClick={() => onApprove(String(leave.name), "Approved")}
                   className="px-3 py-1.5 text-xs font-medium text-white bg-green-600 rounded-md hover:bg-green-700"
                 >
-                  Approve
+                  {tc("approve")}
                 </button>
                 <button
                   onClick={() => onApprove(String(leave.name), "Rejected")}
                   className="px-3 py-1.5 text-xs font-medium text-white bg-red-600 rounded-md hover:bg-red-700"
                 >
-                  Reject
+                  {tc("reject")}
                 </button>
               </div>
             </div>
@@ -228,12 +233,14 @@ function LeaveCalendar({
   calYear,
   onPrev,
   onNext,
+  t,
 }: {
   leaves: LeaveRecord[];
   calMonth: number;
   calYear: number;
   onPrev: () => void;
   onNext: () => void;
+  t: (key: string) => string;
 }) {
   // Build a map of date -> leave types for this month
   const leaveDayMap = useMemo(() => {
@@ -281,7 +288,7 @@ function LeaveCalendar({
 
   return (
     <SectionCard
-      title="Leave Calendar"
+      title={t("leaveCalendar")}
       action={
         <div className="flex items-center gap-2">
           <button
@@ -429,10 +436,14 @@ function LeaveRequestForm({
   balance,
   onSubmit,
   onCancel,
+  t,
+  tc,
 }: {
   balance: LeaveRecord[];
   onSubmit: (data: { leave_type: string; from_date: string; to_date: string; reason: string }) => Promise<void>;
   onCancel: () => void;
+  t: (key: string, v?: Record<string, string | number>) => string;
+  tc: (key: string) => string;
 }) {
   const leaveTypes = balance.length > 0
     ? balance.map((b) => String(b.leave_type))
@@ -468,7 +479,7 @@ function LeaveRequestForm({
       className="bg-white rounded-lg shadow p-6 mb-6 space-y-4"
     >
       <div className="flex items-center justify-between mb-2">
-        <h3 className="text-lg font-semibold text-gray-900">New Leave Request</h3>
+        <h3 className="text-lg font-semibold text-gray-900">{t("newLeaveRequest")}</h3>
         <button
           type="button"
           onClick={onCancel}
@@ -483,28 +494,28 @@ function LeaveRequestForm({
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Leave Type
+            {t("leaveType")}
           </label>
           <select
             value={form.leave_type}
             onChange={(e) => setForm({ ...form, leave_type: e.target.value })}
             className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
           >
-            {leaveTypes.map((t) => (
-              <option key={t} value={t}>
-                {t}
+            {leaveTypes.map((lt) => (
+              <option key={lt} value={lt}>
+                {lt}
               </option>
             ))}
           </select>
           {remaining !== null && (
             <p className={`text-xs mt-1 ${remaining <= 0 ? "text-red-500" : "text-gray-400"}`}>
-              {remaining} day{remaining !== 1 ? "s" : ""} remaining
+              {t("remaining", { count: remaining })}
             </p>
           )}
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            From
+            {t("fromLabel")}
           </label>
           <input
             type="date"
@@ -516,7 +527,7 @@ function LeaveRequestForm({
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            To
+            {t("toLabel")}
           </label>
           <input
             type="date"
@@ -531,14 +542,14 @@ function LeaveRequestForm({
 
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">
-          Reason
+          {t("reasonLabel")}
         </label>
         <textarea
           value={form.reason}
           onChange={(e) => setForm({ ...form, reason: e.target.value })}
           className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
           rows={2}
-          placeholder="Optional: describe your reason for leave"
+          placeholder={t("reasonPlaceholder")}
         />
       </div>
 
@@ -548,14 +559,14 @@ function LeaveRequestForm({
           disabled={submitting}
           className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 text-sm font-medium"
         >
-          {submitting ? "Submitting..." : "Submit Request"}
+          {submitting ? t("submitting") : t("submitRequest")}
         </button>
         <button
           type="button"
           onClick={onCancel}
           className="px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 text-sm"
         >
-          Cancel
+          {t("cancelButton")}
         </button>
       </div>
     </form>
@@ -578,6 +589,8 @@ export default function LeavePage() {
   const [calYear, setCalYear] = useState(now.getFullYear());
 
   const { toast } = useToast();
+  const t = useTranslations("leave");
+  const tc = useTranslations("common");
   const canApprove =
     user?.role === "admin" || user?.role === "hr" || user?.role === "manager";
 
@@ -638,10 +651,10 @@ export default function LeavePage() {
     try {
       await createLeave(data);
       setShowForm(false);
-      toast("Leave request submitted", "success");
+      toast(t("leaveSubmitted"), "success");
       fetchData();
     } catch (err) {
-      toast(err instanceof Error ? err.message : "Failed to create leave request", "error");
+      toast(err instanceof Error ? err.message : t("failedCreate"), "error");
     }
   }
 
@@ -656,13 +669,13 @@ export default function LeavePage() {
   }
 
   async function handleCancel(id: string) {
-    if (!confirm("Cancel this leave request?")) return;
+    if (!confirm(t("cancelLeaveConfirm"))) return;
     try {
       await cancelLeave(id);
-      toast("Leave cancelled", "success");
+      toast(t("leaveCancelled"), "success");
       fetchData();
     } catch {
-      toast("Failed to cancel leave", "error");
+      toast(t("failedCancel"), "error");
     }
   }
 
@@ -708,13 +721,13 @@ export default function LeavePage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900">
-          {canApprove ? "Leave Management" : "My Leave"}
+          {canApprove ? t("managementTitle") : t("myTitle")}
         </h1>
         <button
           onClick={() => setShowForm(!showForm)}
           className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm font-medium"
         >
-          + New Request
+          {t("newRequest")}
         </button>
       </div>
 
@@ -724,6 +737,8 @@ export default function LeavePage() {
           balance={balance}
           onSubmit={handleSubmitLeave}
           onCancel={() => setShowForm(false)}
+          t={t}
+          tc={tc}
         />
       )}
 
@@ -731,23 +746,23 @@ export default function LeavePage() {
       {canApprove && (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard
-            label="Total Requests"
+            label={t("totalRequests")}
             value={leaves.length}
             color="text-blue-600"
           />
           <StatCard
-            label="Pending Approval"
+            label={t("pendingApproval")}
             value={pendingLeaves.length}
             color={pendingLeaves.length > 0 ? "text-orange-600" : "text-gray-900"}
-            subtitle={pendingLeaves.length > 0 ? "Needs attention" : "All clear"}
+            subtitle={pendingLeaves.length > 0 ? tc("needsAttention") : tc("allClear")}
           />
           <StatCard
-            label="Approved (This Month)"
+            label={t("approvedThisMonth")}
             value={approvedThisMonth}
             color="text-green-600"
           />
           <StatCard
-            label="Rejected (This Month)"
+            label={t("rejectedThisMonth")}
             value={rejectedThisMonth}
             color={rejectedThisMonth > 0 ? "text-red-600" : "text-gray-900"}
           />
@@ -759,11 +774,13 @@ export default function LeavePage() {
         <PendingApprovalQueue
           pendingLeaves={pendingLeaves}
           onApprove={handleApprove}
+          t={t}
+          tc={tc}
         />
       )}
 
       {/* Leave Balance (all roles) */}
-      <LeaveBalanceSection balance={balance} />
+      <LeaveBalanceSection balance={balance} t={t} />
 
       {/* Leave Calendar */}
       <LeaveCalendar
@@ -772,6 +789,7 @@ export default function LeavePage() {
         calYear={calYear}
         onPrev={prevMonth}
         onNext={nextMonth}
+        t={t}
       />
 
       {/* Status Filter + Leave Table */}
@@ -787,15 +805,15 @@ export default function LeavePage() {
         {filteredLeaves.length === 0 ? (
           <div className="bg-white rounded-lg shadow">
             <EmptyState
-              title="No leave records"
+              title={t("noLeaveRecords")}
               description={
                 statusFilter !== "All"
-                  ? `No ${statusFilter.toLowerCase()} leave requests found`
-                  : "No leave requests yet"
+                  ? t("noFilteredRecords", { status: statusFilter.toLowerCase() })
+                  : t("noLeaveRequestsYet")
               }
               action={
                 !showForm
-                  ? { label: "Request Leave", onClick: () => setShowForm(true) }
+                  ? { label: t("requestLeave"), onClick: () => setShowForm(true) }
                   : undefined
               }
             />
@@ -807,26 +825,26 @@ export default function LeavePage() {
                 <tr>
                   {canApprove && (
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Employee
+                      {t("employeeCol")}
                     </th>
                   )}
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Type
+                    {t("typeCol")}
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Period
+                    {t("periodCol")}
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Days
+                    {t("daysCol")}
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Reason
+                    {t("reasonCol")}
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Status
+                    {t("statusCol")}
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Actions
+                    {t("actionsCol")}
                   </th>
                 </tr>
               </thead>
@@ -890,7 +908,7 @@ export default function LeavePage() {
                                   }
                                   className="text-green-600 hover:text-green-800 text-xs font-medium"
                                 >
-                                  Approve
+                                  {tc("approve")}
                                 </button>
                                 <button
                                   onClick={() =>
@@ -898,7 +916,7 @@ export default function LeavePage() {
                                   }
                                   className="text-red-600 hover:text-red-800 text-xs font-medium"
                                 >
-                                  Reject
+                                  {tc("reject")}
                                 </button>
                               </>
                             )}
@@ -906,7 +924,7 @@ export default function LeavePage() {
                               onClick={() => handleCancel(String(leave.name))}
                               className="text-gray-500 hover:text-gray-700 text-xs font-medium"
                             >
-                              Cancel
+                              {tc("cancel")}
                             </button>
                           </div>
                         )}

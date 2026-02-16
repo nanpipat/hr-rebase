@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import { getEmployees } from "@/lib/api";
 import Badge, { statusVariant } from "@/components/ui/Badge";
+import { useTranslations } from "@/lib/i18n";
 
 export default function EmployeesPage() {
   const { user } = useAuth();
@@ -15,6 +16,8 @@ export default function EmployeesPage() {
   const [deptFilter, setDeptFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const router = useRouter();
+  const t = useTranslations("employees");
+  const tc = useTranslations("common");
 
   useEffect(() => {
     getEmployees()
@@ -53,9 +56,9 @@ export default function EmployeesPage() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Employees</h1>
+          <h1 className="text-2xl font-bold text-gray-900">{t("title")}</h1>
           <p className="text-sm text-gray-500 mt-1">
-            {loading ? "" : `${filtered.length} of ${employees.length} employees`}
+            {loading ? "" : t("count", { filtered: filtered.length, total: employees.length })}
           </p>
         </div>
         {canCreate && (
@@ -63,7 +66,7 @@ export default function EmployeesPage() {
             href="/employees/new"
             className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm"
           >
-            Add Employee
+            {t("addEmployee")}
           </a>
         )}
       </div>
@@ -73,7 +76,7 @@ export default function EmployeesPage() {
         <div className="flex-1">
           <input
             type="text"
-            placeholder="Search by name, ID, or designation..."
+            placeholder={t("searchPlaceholder")}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
@@ -84,7 +87,7 @@ export default function EmployeesPage() {
           onChange={(e) => setDeptFilter(e.target.value)}
           className="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
         >
-          <option value="">All Departments</option>
+          <option value="">{t("allDepartments")}</option>
           {departments.map((d) => (
             <option key={d} value={d}>
               {d}
@@ -96,7 +99,7 @@ export default function EmployeesPage() {
           onChange={(e) => setStatusFilter(e.target.value)}
           className="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
         >
-          <option value="">All Statuses</option>
+          <option value="">{t("allStatuses")}</option>
           {statuses.map((s) => (
             <option key={s} value={s}>
               {s}
@@ -112,7 +115,7 @@ export default function EmployeesPage() {
             }}
             className="px-3 py-2 text-sm text-gray-500 hover:text-gray-700"
           >
-            Clear
+            {tc("clear")}
           </button>
         )}
       </div>
@@ -139,16 +142,16 @@ export default function EmployeesPage() {
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                  Employee
+                  {tc("employee")}
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                  Department
+                  {t("department")}
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                  Designation
+                  {t("designation")}
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                  Status
+                  {tc("status")}
                 </th>
               </tr>
             </thead>
@@ -181,8 +184,8 @@ export default function EmployeesPage() {
                 <tr>
                   <td colSpan={4} className="px-6 py-8 text-sm text-gray-500 text-center">
                     {employees.length === 0
-                      ? "No employees found"
-                      : "No employees match your search"}
+                      ? t("noEmployees")
+                      : t("noMatch")}
                   </td>
                 </tr>
               )}

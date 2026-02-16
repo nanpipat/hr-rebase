@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { getUsers, changeUserRole, changeUserStatus } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
+import { useTranslations } from "@/lib/i18n";
 
 interface User {
   id: string;
@@ -23,6 +24,8 @@ export default function UsersPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const t = useTranslations("users");
+  const tc = useTranslations("common");
 
   function fetchUsers() {
     setLoading(true);
@@ -41,7 +44,7 @@ export default function UsersPage() {
       await changeUserRole(userId, role);
       fetchUsers();
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Failed to change role");
+      alert(err instanceof Error ? err.message : t("failedChangeRole"));
     }
   }
 
@@ -50,23 +53,23 @@ export default function UsersPage() {
       await changeUserStatus(userId, status);
       fetchUsers();
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Failed to change status");
+      alert(err instanceof Error ? err.message : t("failedChangeStatus"));
     }
   }
 
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Users</h1>
+        <h1 className="text-2xl font-bold text-gray-900">{t("title")}</h1>
         <Link
           href="/users/invite"
           className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm"
         >
-          Invite User
+          {t("inviteUser")}
         </Link>
       </div>
 
-      {loading && <p className="text-gray-500">Loading...</p>}
+      {loading && <p className="text-gray-500">{tc("loading")}</p>}
       {error && <p className="text-red-500">{error}</p>}
 
       {!loading && !error && (
@@ -74,11 +77,11 @@ export default function UsersPage() {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Role</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Employee ID</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t("nameCol")}</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t("emailCol")}</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t("roleCol")}</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{tc("status")}</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t("employeeIdCol")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
@@ -88,7 +91,7 @@ export default function UsersPage() {
                   <tr key={u.id}>
                     <td className="px-6 py-4 text-sm text-gray-900">
                       {u.full_name}
-                      {isSelf && <span className="ml-2 text-xs text-gray-400">(you)</span>}
+                      {isSelf && <span className="ml-2 text-xs text-gray-400">({t("you")})</span>}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-500">{u.email}</td>
                     <td className="px-6 py-4 text-sm">
@@ -142,7 +145,7 @@ export default function UsersPage() {
               {users.length === 0 && (
                 <tr>
                   <td colSpan={5} className="px-6 py-4 text-sm text-gray-500 text-center">
-                    No users found
+                    {t("noUsers")}
                   </td>
                 </tr>
               )}

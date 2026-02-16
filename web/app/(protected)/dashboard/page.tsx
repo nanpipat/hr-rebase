@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
+import { useTranslations } from "@/lib/i18n";
 import {
   getEmployees,
   getLeaves,
@@ -252,6 +253,8 @@ interface AdminData {
 
 function AdminDashboard() {
   const router = useRouter();
+  const t = useTranslations("dashboard");
+  const tc = useTranslations("common");
   const [data, setData] = useState<AdminData | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -291,7 +294,7 @@ function AdminDashboard() {
   const payrollDraft = payrollSlips.filter((s) => s.status === "Draft").length;
   const payrollSubmitted = payrollSlips.filter((s) => s.status === "Submitted").length;
   const payrollTotal = payrollSlips.length;
-  const payrollStatus = payrollTotal === 0 ? "Not run" : payrollDraft > 0 ? `${payrollDraft} draft` : "Completed";
+  const payrollStatus = payrollTotal === 0 ? t("notRun") : payrollDraft > 0 ? t("draft", { count: payrollDraft }) : t("completed");
 
   // Department breakdown
   const deptCounts = countBy(employees, (e) => e.department);
@@ -395,37 +398,37 @@ function AdminDashboard() {
       {/* Stat Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
         <StatCard
-          label="Total Employees"
+          label={t("totalEmployees")}
           value={totalEmployees}
           color="text-blue-600"
           onClick={() => router.push("/employees")}
         />
         <StatCard
-          label="Active Employees"
+          label={t("activeEmployees")}
           value={activeEmployees}
           color="text-green-600"
-          subtitle={totalEmployees > 0 ? `${Math.round((activeEmployees / totalEmployees) * 100)}% of total` : undefined}
+          subtitle={totalEmployees > 0 ? t("ofTotal", { pct: Math.round((activeEmployees / totalEmployees) * 100) }) : undefined}
           onClick={() => router.push("/employees")}
         />
         <StatCard
-          label="Pending Leave"
+          label={t("pendingLeave")}
           value={pendingLeaves}
           color={pendingLeaves > 0 ? "text-orange-600" : "text-gray-900"}
-          subtitle={pendingLeaves > 0 ? "Awaiting approval" : "All clear"}
+          subtitle={pendingLeaves > 0 ? tc("awaitingApproval") : tc("allClear")}
           onClick={() => router.push("/leave")}
         />
         <StatCard
-          label="Attendance Requests"
+          label={t("attendanceRequests")}
           value={pendingAttReqs}
           color={pendingAttReqs > 0 ? "text-orange-600" : "text-gray-900"}
-          subtitle={pendingAttReqs > 0 ? "Pending review" : "All clear"}
+          subtitle={pendingAttReqs > 0 ? tc("pendingReview") : tc("allClear")}
           onClick={() => router.push("/attendance")}
         />
         <StatCard
-          label="Payroll"
+          label={t("payroll")}
           value={payrollStatus}
           color={payrollDraft > 0 ? "text-orange-600" : payrollSubmitted > 0 ? "text-green-600" : "text-gray-500"}
-          subtitle={payrollTotal > 0 ? `${payrollSubmitted} submitted` : "This month"}
+          subtitle={payrollTotal > 0 ? t("submitted", { count: payrollSubmitted }) : tc("thisMonth")}
           onClick={() => router.push("/payroll")}
         />
       </div>
@@ -434,19 +437,19 @@ function AdminDashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Department Breakdown */}
         <SectionCard
-          title="Department Breakdown"
+          title={t("departmentBreakdown")}
           action={
             <button
               onClick={() => router.push("/employees")}
               className="text-sm text-blue-600 hover:text-blue-800"
             >
-              View all
+              {tc("viewAll")}
             </button>
           }
         >
           {deptEntries.length === 0 ? (
             <p className="text-sm text-gray-400 text-center py-4">
-              No department data available
+              {t("noDepartmentData")}
             </p>
           ) : (
             <div className="space-y-3">
@@ -465,26 +468,26 @@ function AdminDashboard() {
 
         {/* Leave Overview */}
         <SectionCard
-          title="Leave Overview"
+          title={t("leaveOverview")}
           action={
             <button
               onClick={() => router.push("/leave")}
               className="text-sm text-blue-600 hover:text-blue-800"
             >
-              Manage
+              {tc("manage")}
             </button>
           }
         >
           {leaves.length === 0 ? (
             <p className="text-sm text-gray-400 text-center py-4">
-              No leave records
+              {t("noLeaveRecords")}
             </p>
           ) : (
             <div className="space-y-5">
               {/* Leave type distribution */}
               <div className="space-y-3">
                 <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
-                  By Type
+                  {t("byType")}
                 </p>
                 {leaveTypeEntries.map(([type, count], i) => (
                   <HorizontalBar
@@ -501,7 +504,7 @@ function AdminDashboard() {
               {pendingLeaveList.length > 0 && (
                 <div>
                   <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3">
-                    Pending Approvals ({pendingLeaves})
+                    {t("pendingApprovals")} ({pendingLeaves})
                   </p>
                   <div className="space-y-2">
                     {pendingLeaveList.map((l, i) => (
@@ -532,10 +535,10 @@ function AdminDashboard() {
       </div>
 
       {/* Recent Activity */}
-      <SectionCard title="Recent Activity">
+      <SectionCard title={t("recentActivity")}>
         {recentActivities.length === 0 ? (
           <p className="text-sm text-gray-400 text-center py-4">
-            No recent activity
+            {t("noRecentActivity")}
           </p>
         ) : (
           <div className="space-y-1">
@@ -577,12 +580,12 @@ function AdminDashboard() {
 
       {/* Quick Actions */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <QuickAction label="View Employees" href="/employees" icon="👥" />
-        <QuickAction label="Manage Leave" href="/leave" icon="📋" />
-        <QuickAction label="Attendance" href="/attendance" icon="📊" />
-        <QuickAction label="Shifts" href="/shifts" icon="🕐" />
-        <QuickAction label="Payroll" href="/payroll" icon="💰" />
-        <QuickAction label="Manage Users" href="/settings" icon="⚙️" />
+        <QuickAction label={t("quickActions.viewEmployees")} href="/employees" icon="👥" />
+        <QuickAction label={t("quickActions.manageLeave")} href="/leave" icon="📋" />
+        <QuickAction label={t("quickActions.attendance")} href="/attendance" icon="📊" />
+        <QuickAction label={t("quickActions.shifts")} href="/shifts" icon="🕐" />
+        <QuickAction label={t("quickActions.payroll")} href="/payroll" icon="💰" />
+        <QuickAction label={t("quickActions.manageUsers")} href="/settings" icon="⚙️" />
       </div>
     </div>
   );
@@ -610,6 +613,8 @@ interface EmployeeData {
 function EmployeeDashboard() {
   const router = useRouter();
   const { toast } = useToast();
+  const t = useTranslations("dashboard");
+  const tc = useTranslations("common");
   const [data, setData] = useState<EmployeeData | null>(null);
   const [loading, setLoading] = useState(true);
   const [checkinLoading, setCheckinLoading] = useState(false);
@@ -650,11 +655,11 @@ function EmployeeDashboard() {
     setCheckinLoading(true);
     try {
       await apiCheckin();
-      toast("Checked in successfully", "success");
+      toast(t("checkedInSuccess"), "success");
       const res = await getTodayCheckin().catch(() => ({ data: null }));
       setData((prev) => prev ? { ...prev, todayCheckin: res.data as TodayCheckin | null } : prev);
     } catch (err) {
-      toast(err instanceof Error ? err.message : "Failed to check in", "error");
+      toast(err instanceof Error ? err.message : t("failedCheckIn"), "error");
     } finally {
       setCheckinLoading(false);
     }
@@ -664,11 +669,11 @@ function EmployeeDashboard() {
     setCheckinLoading(true);
     try {
       await apiCheckout();
-      toast("Checked out successfully", "success");
+      toast(t("checkedOutSuccess"), "success");
       const res = await getTodayCheckin().catch(() => ({ data: null }));
       setData((prev) => prev ? { ...prev, todayCheckin: res.data as TodayCheckin | null } : prev);
     } catch (err) {
-      toast(err instanceof Error ? err.message : "Failed to check out", "error");
+      toast(err instanceof Error ? err.message : t("failedCheckOut"), "error");
     } finally {
       setCheckinLoading(false);
     }
@@ -694,9 +699,9 @@ function EmployeeDashboard() {
   // Attendance segments for donut
   const attSegments = attendanceSummary
     ? [
-        { value: attendanceSummary.present, color: "#22c55e", label: "Present" },
-        { value: attendanceSummary.absent, color: "#ef4444", label: "Absent" },
-        { value: attendanceSummary.on_leave, color: "#eab308", label: "On Leave" },
+        { value: attendanceSummary.present, color: "#22c55e", label: tc("present") },
+        { value: attendanceSummary.absent, color: "#ef4444", label: tc("absent") },
+        { value: attendanceSummary.on_leave, color: "#eab308", label: tc("onLeave") },
       ]
     : [];
   const attTotal = attendanceSummary?.total_days || 0;
@@ -740,13 +745,13 @@ function EmployeeDashboard() {
       {/* My Shift Card */}
       {myShift?.has_shift && (
         <SectionCard
-          title="My Shift"
+          title={t("myShift")}
           action={
             <button
               onClick={() => router.push("/shifts")}
               className="text-sm text-blue-600 hover:text-blue-800"
             >
-              View details
+              {tc("viewDetails")}
             </button>
           }
         >
@@ -768,13 +773,13 @@ function EmployeeDashboard() {
 
       {/* Quick Check-in Card */}
       <SectionCard
-        title="Today's Check-in"
+        title={t("todayCheckin")}
         action={
           <button
             onClick={() => router.push("/attendance")}
             className="text-sm text-blue-600 hover:text-blue-800"
           >
-            View details
+            {tc("viewDetails")}
           </button>
         }
       >
@@ -792,17 +797,17 @@ function EmployeeDashboard() {
             <div>
               <p className="text-sm font-medium text-gray-900">
                 {todayCheckin?.is_checked_in
-                  ? `Working since ${formatCheckinTime(todayCheckin.first_in)}`
+                  ? t("workingSince", { time: formatCheckinTime(todayCheckin.first_in) })
                   : hasCheckedOut
-                    ? `Done - ${formatCheckinHours(todayCheckin!.working_hours)} today`
-                    : "Not checked in yet"}
+                    ? t("doneToday", { hours: formatCheckinHours(todayCheckin!.working_hours) })
+                    : t("notCheckedInYet")}
               </p>
               <p className="text-xs text-gray-500">
                 {todayCheckin?.is_checked_in
-                  ? `${formatCheckinHours(todayCheckin.working_hours)} elapsed`
+                  ? t("elapsed", { hours: formatCheckinHours(todayCheckin.working_hours) })
                   : hasCheckedOut
                     ? `${formatCheckinTime(todayCheckin!.first_in)} - ${formatCheckinTime(todayCheckin!.last_out)}`
-                    : "Tap to start your day"}
+                    : t("tapToStart")}
               </p>
             </div>
           </div>
@@ -813,7 +818,7 @@ function EmployeeDashboard() {
                 disabled={checkinLoading}
                 className="px-5 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 text-sm font-medium transition-colors"
               >
-                {checkinLoading ? "..." : "Check In"}
+                {checkinLoading ? "..." : t("checkIn")}
               </button>
             ) : todayCheckin?.is_checked_in ? (
               <button
@@ -821,10 +826,10 @@ function EmployeeDashboard() {
                 disabled={checkinLoading}
                 className="px-5 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 text-sm font-medium transition-colors"
               >
-                {checkinLoading ? "..." : "Check Out"}
+                {checkinLoading ? "..." : t("checkOut")}
               </button>
             ) : (
-              <span className="text-sm text-gray-400 font-medium">Checked Out</span>
+              <span className="text-sm text-gray-400 font-medium">{t("checkedOut")}</span>
             )}
           </div>
         </div>
@@ -833,13 +838,13 @@ function EmployeeDashboard() {
       {/* Latest Payslip */}
       {latestPayslip && (
         <SectionCard
-          title="Latest Payslip"
+          title={t("latestPayslip")}
           action={
             <button
               onClick={() => router.push("/payroll")}
               className="text-sm text-blue-600 hover:text-blue-800"
             >
-              View all
+              {tc("viewAll")}
             </button>
           }
         >
@@ -860,18 +865,18 @@ function EmployeeDashboard() {
                 <p className="text-2xl font-bold text-gray-900">
                   {new Intl.NumberFormat("th-TH").format(latestPayslip.net_pay)}
                 </p>
-                <p className="text-xs text-gray-400">Net Pay</p>
+                <p className="text-xs text-gray-400">{t("netPay")}</p>
               </div>
             </div>
             <div className="text-right space-y-1">
               <div>
-                <span className="text-xs text-gray-500">Gross: </span>
+                <span className="text-xs text-gray-500">{t("gross")} </span>
                 <span className="text-sm font-medium text-gray-700">
                   {new Intl.NumberFormat("th-TH").format(latestPayslip.gross_pay)}
                 </span>
               </div>
               <div>
-                <span className="text-xs text-gray-500">Deductions: </span>
+                <span className="text-xs text-gray-500">{t("deductions")} </span>
                 <span className="text-sm font-medium text-red-600">
                   -{new Intl.NumberFormat("th-TH").format(latestPayslip.total_deduction)}
                 </span>
@@ -885,25 +890,25 @@ function EmployeeDashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* My Attendance */}
         <SectionCard
-          title="My Attendance"
+          title={t("myAttendanceTitle")}
           action={
             <button
               onClick={() => router.push("/attendance")}
               className="text-sm text-blue-600 hover:text-blue-800"
             >
-              View details
+              {tc("viewDetails")}
             </button>
           }
         >
           {!attendanceSummary ? (
             <p className="text-sm text-gray-400 text-center py-8">
-              No attendance data for this month
+              {t("noAttendanceData")}
             </p>
           ) : (
             <div className="flex items-center gap-8">
               <DonutRing
                 segments={attSegments}
-                centerLabel="Present"
+                centerLabel={tc("present")}
                 centerValue={`${attPresentPct}%`}
               />
               <DonutLegend segments={attSegments} />
@@ -913,19 +918,19 @@ function EmployeeDashboard() {
 
         {/* Leave Balance */}
         <SectionCard
-          title="Leave Balance"
+          title={t("leaveBalance")}
           action={
             <button
               onClick={() => router.push("/leave")}
               className="text-sm text-blue-600 hover:text-blue-800"
             >
-              Request leave
+              {t("requestLeave")}
             </button>
           }
         >
           {leaveBalance.length === 0 ? (
             <p className="text-sm text-gray-400 text-center py-8">
-              No leave allocations found
+              {t("noLeaveAllocations")}
             </p>
           ) : (
             <div className="space-y-4">
@@ -946,9 +951,9 @@ function EmployeeDashboard() {
                         <span className="text-sm font-bold text-gray-900">
                           {remaining}
                         </span>
-                        <span className="text-xs text-gray-400">/ {total} days</span>
+                        <span className="text-xs text-gray-400">/ {total} {tc("days")}</span>
                         {isLow && (
-                          <span className="text-xs text-amber-600 font-medium">Low</span>
+                          <span className="text-xs text-amber-600 font-medium">{t("low")}</span>
                         )}
                       </div>
                     </div>
@@ -961,7 +966,7 @@ function EmployeeDashboard() {
                       />
                     </div>
                     <p className="text-xs text-gray-400 mt-0.5">
-                      Used: {used} days
+                      {t("used", { count: used })}
                     </p>
                   </div>
                 );
@@ -973,19 +978,19 @@ function EmployeeDashboard() {
 
       {/* My Recent Leaves */}
       <SectionCard
-        title="My Recent Leaves"
+        title={t("myRecentLeaves")}
         action={
           <button
             onClick={() => router.push("/leave")}
             className="text-sm text-blue-600 hover:text-blue-800"
           >
-            View all
+            {tc("viewAll")}
           </button>
         }
       >
         {myLeaves.length === 0 ? (
           <p className="text-sm text-gray-400 text-center py-4">
-            No leave requests yet
+            {t("noLeaveRequestsYet")}
           </p>
         ) : (
           <div className="divide-y divide-gray-100">
@@ -1019,10 +1024,10 @@ function EmployeeDashboard() {
 
       {/* Quick Actions */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <QuickAction label="Request Leave" href="/leave" icon="📋" />
-        <QuickAction label="My Attendance" href="/attendance" icon="📊" />
-        <QuickAction label="My Payslips" href="/payroll" icon="💰" />
-        <QuickAction label="My Profile" href="/profile" icon="👤" />
+        <QuickAction label={t("quickActions.requestLeave")} href="/leave" icon="📋" />
+        <QuickAction label={t("quickActions.myAttendance")} href="/attendance" icon="📊" />
+        <QuickAction label={t("quickActions.myPayslips")} href="/payroll" icon="💰" />
+        <QuickAction label={t("quickActions.myProfile")} href="/profile" icon="👤" />
       </div>
     </div>
   );
@@ -1032,6 +1037,7 @@ function EmployeeDashboard() {
 
 export default function DashboardPage() {
   const { user } = useAuth();
+  const t = useTranslations("dashboard");
 
   if (!user) return null;
 
@@ -1042,9 +1048,9 @@ export default function DashboardPage() {
     <div>
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
+          <h1 className="text-2xl font-bold text-gray-900">{t("title")}</h1>
           <p className="text-gray-500 mt-1">
-            Welcome back,{" "}
+            {t("welcome")}{" "}
             <span className="font-medium text-gray-700">{user.full_name}</span>
           </p>
         </div>

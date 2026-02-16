@@ -11,6 +11,7 @@ import {
 import Badge from "@/components/ui/Badge";
 import EmptyState from "@/components/ui/EmptyState";
 import { useToast } from "@/components/ui/Toast";
+import { useTranslations } from "@/lib/i18n";
 
 // ── Types ──────────────────────────────────────────────────
 
@@ -133,9 +134,11 @@ function StatCard({
 function PayslipDetailView({
   detail,
   onClose,
+  t,
 }: {
   detail: SlipDetail;
   onClose: () => void;
+  t: (key: string) => string;
 }) {
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
@@ -143,7 +146,7 @@ function PayslipDetailView({
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
           <div>
-            <h3 className="text-lg font-semibold text-gray-900">Payslip Detail</h3>
+            <h3 className="text-lg font-semibold text-gray-900">{t("payslipDetail")}</h3>
             <p className="text-sm text-gray-500">{formatMonth(detail.start_date)}</p>
           </div>
           <button
@@ -160,7 +163,7 @@ function PayslipDetailView({
           {/* Employee info */}
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-500">Employee</p>
+              <p className="text-sm text-gray-500">{t("employeeLabel")}</p>
               <p className="font-medium text-gray-900">{detail.employee_name}</p>
             </div>
             <Badge variant={slipStatusVariant(detail.status)}>{detail.status}</Badge>
@@ -169,7 +172,7 @@ function PayslipDetailView({
           {/* Earnings */}
           <div>
             <h4 className="text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wide">
-              Earnings
+              {t("earnings")}
             </h4>
             <div className="space-y-2">
               {detail.earnings.map((e, i) => (
@@ -182,7 +185,7 @@ function PayslipDetailView({
               ))}
             </div>
             <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
-              <span className="text-sm font-semibold text-gray-700">Gross Pay</span>
+              <span className="text-sm font-semibold text-gray-700">{t("grossPay")}</span>
               <span className="text-sm font-bold text-gray-900">
                 {formatCurrency(detail.gross_pay)}
               </span>
@@ -192,7 +195,7 @@ function PayslipDetailView({
           {/* Deductions */}
           <div>
             <h4 className="text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wide">
-              Deductions
+              {t("deductions")}
             </h4>
             <div className="space-y-2">
               {detail.deductions.map((d, i) => (
@@ -205,7 +208,7 @@ function PayslipDetailView({
               ))}
             </div>
             <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
-              <span className="text-sm font-semibold text-gray-700">Total Deductions</span>
+              <span className="text-sm font-semibold text-gray-700">{t("totalDeductions")}</span>
               <span className="text-sm font-bold text-red-600">
                 -{formatCurrency(detail.total_deduction)}
               </span>
@@ -215,7 +218,7 @@ function PayslipDetailView({
           {/* Net Pay */}
           <div className="bg-blue-50 rounded-lg p-4">
             <div className="flex items-center justify-between">
-              <span className="text-base font-semibold text-blue-900">Net Pay</span>
+              <span className="text-base font-semibold text-blue-900">{t("netPay")}</span>
               <span className="text-2xl font-bold text-blue-700">
                 {formatCurrency(detail.net_pay)}
               </span>
@@ -229,7 +232,7 @@ function PayslipDetailView({
 
 // ── Process Payroll Section (Admin/HR) ───────────────────────
 
-function ProcessPayrollSection({ onProcessed }: { onProcessed: () => void }) {
+function ProcessPayrollSection({ onProcessed, t }: { onProcessed: () => void; t: (key: string, v?: Record<string, string | number>) => string }) {
   const now = new Date();
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [year, setYear] = useState(now.getFullYear());
@@ -244,43 +247,43 @@ function ProcessPayrollSection({ onProcessed }: { onProcessed: () => void }) {
       const res = await processPayroll({ month, year });
       setResult(res.data);
       if (res.data.created_count > 0) {
-        toast(`${res.data.created_count} salary slips created`, "success");
+        toast(t("slipsCreated", { count: res.data.created_count }), "success");
       } else if (res.data.skipped_count > 0) {
-        toast("All slips already exist for this period", "info");
+        toast(t("allSlipsExist"), "info");
       } else {
-        toast("No employees with salary structure assignments", "info");
+        toast(t("noSalaryStructure"), "info");
       }
       onProcessed();
     } catch (err) {
-      toast(err instanceof Error ? err.message : "Failed to process payroll", "error");
+      toast(err instanceof Error ? err.message : t("failedProcess"), "error");
     } finally {
       setProcessing(false);
     }
   }
 
   async function handleSubmit() {
-    if (!confirm(`Submit all draft salary slips for ${MONTHS[month - 1]} ${year}? This cannot be undone.`)) {
+    if (!confirm(t("submitConfirm", { month: MONTHS[month - 1], year }))) {
       return;
     }
     setSubmitting(true);
     try {
       const res = await submitPayroll({ month, year });
-      toast(`${res.data.submitted_count} salary slips submitted`, "success");
+      toast(t("slipsSubmitted", { count: res.data.submitted_count }), "success");
       setResult(null);
       onProcessed();
     } catch (err) {
-      toast(err instanceof Error ? err.message : "Failed to submit payroll", "error");
+      toast(err instanceof Error ? err.message : t("failedSubmit"), "error");
     } finally {
       setSubmitting(false);
     }
   }
 
   return (
-    <SectionCard title="Run Payroll">
+    <SectionCard title={t("runPayroll")}>
       <div className="space-y-4">
         <div className="flex items-end gap-4 flex-wrap">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Month</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">{t("monthLabel")}</label>
             <select
               value={month}
               onChange={(e) => setMonth(Number(e.target.value))}
@@ -292,7 +295,7 @@ function ProcessPayrollSection({ onProcessed }: { onProcessed: () => void }) {
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Year</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">{t("yearLabel")}</label>
             <input
               type="number"
               value={year}
@@ -307,33 +310,33 @@ function ProcessPayrollSection({ onProcessed }: { onProcessed: () => void }) {
             disabled={processing}
             className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 text-sm font-medium"
           >
-            {processing ? "Processing..." : "Process Payroll"}
+            {processing ? t("processing") : t("processPayroll")}
           </button>
           <button
             onClick={handleSubmit}
             disabled={submitting}
             className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 text-sm font-medium"
           >
-            {submitting ? "Submitting..." : "Submit All"}
+            {submitting ? t("submittingAll") : t("submitAll")}
           </button>
         </div>
 
         {result && (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4 p-4 bg-gray-50 rounded-lg">
             <div>
-              <p className="text-xs text-gray-500">Created</p>
+              <p className="text-xs text-gray-500">{t("created")}</p>
               <p className="text-lg font-bold text-blue-600">{result.created_count}</p>
             </div>
             <div>
-              <p className="text-xs text-gray-500">Skipped</p>
+              <p className="text-xs text-gray-500">{t("skipped")}</p>
               <p className="text-lg font-bold text-gray-500">{result.skipped_count}</p>
             </div>
             <div>
-              <p className="text-xs text-gray-500">Total Gross</p>
+              <p className="text-xs text-gray-500">{t("totalGross")}</p>
               <p className="text-lg font-bold text-gray-900">{formatCurrency(result.total_gross)}</p>
             </div>
             <div>
-              <p className="text-xs text-gray-500">Total Net</p>
+              <p className="text-xs text-gray-500">{t("totalNet")}</p>
               <p className="text-lg font-bold text-green-600">{formatCurrency(result.total_net)}</p>
             </div>
           </div>
@@ -358,6 +361,7 @@ export default function PayrollPage() {
 
   const isAdmin = user?.role === "admin" || user?.role === "hr";
   const { toast } = useToast();
+  const t = useTranslations("payroll");
 
   function fetchSlips() {
     setLoading(true);
@@ -382,7 +386,7 @@ export default function PayrollPage() {
       const res = await getPayrollSlipDetail(slipId);
       setSelectedDetail(res.data);
     } catch {
-      toast("Failed to load payslip detail", "error");
+      toast(t("failedLoadDetail"), "error");
     } finally {
       setLoadingDetail(false);
     }
@@ -418,10 +422,10 @@ export default function PayrollPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900">
-          {isAdmin ? "Payroll Management" : "My Payslips"}
+          {isAdmin ? t("managementTitle") : t("myTitle")}
         </h1>
         <div className="flex items-center gap-2">
-          <label className="text-sm text-gray-500">Year:</label>
+          <label className="text-sm text-gray-500">{t("yearLabel")}:</label>
           <select
             value={filterYear}
             onChange={(e) => setFilterYear(Number(e.target.value))}
@@ -435,31 +439,31 @@ export default function PayrollPage() {
       </div>
 
       {/* Admin: Process Payroll Section */}
-      {isAdmin && <ProcessPayrollSection onProcessed={fetchSlips} />}
+      {isAdmin && <ProcessPayrollSection onProcessed={fetchSlips} t={t} />}
 
       {/* Stats */}
       {isAdmin ? (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard
-            label="Total Slips"
+            label={t("totalSlips")}
             value={slips.length}
             color="text-blue-600"
           />
           <StatCard
-            label="Draft"
+            label={t("draft")}
             value={draftCount}
             color={draftCount > 0 ? "text-orange-600" : "text-gray-900"}
           />
           <StatCard
-            label="Submitted"
+            label={t("submitted")}
             value={submittedCount}
             color="text-green-600"
           />
           <StatCard
-            label="Total Net Pay"
+            label={t("totalNetPay")}
             value={`${formatCurrency(totalNet)}`}
             color="text-gray-900"
-            subtitle={`Gross: ${formatCurrency(totalGross)}`}
+            subtitle={`${t("grossLabel")}: ${formatCurrency(totalGross)}`}
           />
         </div>
       ) : latestSlip ? (
@@ -470,7 +474,7 @@ export default function PayrollPage() {
         >
           <div className="flex items-center justify-between mb-4">
             <div>
-              <p className="text-sm text-gray-500">Latest Payslip</p>
+              <p className="text-sm text-gray-500">{t("latestPayslip")}</p>
               <p className="text-lg font-semibold text-gray-900">
                 {formatMonth(latestSlip.start_date)}
               </p>
@@ -479,19 +483,19 @@ export default function PayrollPage() {
           </div>
           <div className="grid grid-cols-3 gap-4">
             <div>
-              <p className="text-xs text-gray-500">Gross Pay</p>
+              <p className="text-xs text-gray-500">{t("grossPay")}</p>
               <p className="text-xl font-bold text-gray-900">{formatCurrency(latestSlip.gross_pay)}</p>
             </div>
             <div>
-              <p className="text-xs text-gray-500">Deductions</p>
+              <p className="text-xs text-gray-500">{t("deductions")}</p>
               <p className="text-xl font-bold text-red-600">-{formatCurrency(latestSlip.total_deduction)}</p>
             </div>
             <div>
-              <p className="text-xs text-gray-500">Net Pay</p>
+              <p className="text-xs text-gray-500">{t("netPay")}</p>
               <p className="text-xl font-bold text-blue-700">{formatCurrency(latestSlip.net_pay)}</p>
             </div>
           </div>
-          <p className="text-xs text-gray-400 mt-3">Click to view details</p>
+          <p className="text-xs text-gray-400 mt-3">{t("clickToView")}</p>
         </div>
       ) : null}
 
@@ -499,17 +503,17 @@ export default function PayrollPage() {
       {slips.length === 0 ? (
         <div className="bg-white rounded-lg shadow">
           <EmptyState
-            title="No payslips"
+            title={t("noPayslips")}
             description={
               isAdmin
-                ? "No salary slips found. Process payroll to generate slips."
-                : "No payslips available for the selected year."
+                ? t("noPayslipsAdmin")
+                : t("noPayslipsEmployee")
             }
           />
         </div>
       ) : (
         <SectionCard
-          title={isAdmin ? `Salary Slips (${slips.length})` : "Payslip History"}
+          title={isAdmin ? `${t("salarySlips")} (${slips.length})` : t("payslipHistory")}
         >
           <div className="overflow-x-auto -mx-6 -mb-6">
             <table className="min-w-full divide-y divide-gray-200">
@@ -517,26 +521,26 @@ export default function PayrollPage() {
                 <tr>
                   {isAdmin && (
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Employee
+                      {t("employeeLabel")}
                     </th>
                   )}
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Period
+                    {t("periodCol")}
                   </th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">
-                    Gross
+                    {t("grossLabel")}
                   </th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">
-                    Deductions
+                    {t("deductions")}
                   </th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">
-                    Net Pay
+                    {t("netPay")}
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Status
+                    {t("statusCol")}
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Actions
+                    {t("actionsCol")}
                   </th>
                 </tr>
               </thead>
@@ -569,7 +573,7 @@ export default function PayrollPage() {
                         disabled={loadingDetail}
                         className="text-blue-600 hover:text-blue-800 text-xs font-medium"
                       >
-                        View
+                        {t("view")}
                       </button>
                     </td>
                   </tr>
@@ -585,6 +589,7 @@ export default function PayrollPage() {
         <PayslipDetailView
           detail={selectedDetail}
           onClose={() => setSelectedDetail(null)}
+          t={t}
         />
       )}
     </div>

@@ -4,17 +4,20 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import { getMenuForRole } from "@/lib/role-menu";
+import { useTranslations } from "@/lib/i18n";
+import LocaleSwitcher from "@/components/ui/LocaleSwitcher";
 
 export default function Sidebar() {
   const pathname = usePathname();
   const { user, logout } = useAuth();
+  const t = useTranslations();
 
   const menuItems = user ? getMenuForRole(user.role) : [];
 
   return (
     <aside className="w-64 bg-white border-r border-gray-200 min-h-screen p-4 flex flex-col">
       <div className="mb-8">
-        <h2 className="text-xl font-bold text-gray-800">HR Platform</h2>
+        <h2 className="text-xl font-bold text-gray-800">{t("common.appName")}</h2>
         {user && (
           <p className="text-xs text-gray-400 mt-1 truncate">{user.company_name}</p>
         )}
@@ -32,7 +35,7 @@ export default function Sidebar() {
                   : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
               }`}
             >
-              {item.label}
+              {t(item.labelKey)}
             </Link>
           );
         })}
@@ -46,11 +49,12 @@ export default function Sidebar() {
               {user.role}
             </span>
           </div>
+          <LocaleSwitcher />
           <button
             onClick={logout}
-            className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded-md"
+            className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded-md mt-1"
           >
-            Logout
+            {t("common.logout")}
           </button>
         </div>
       )}
