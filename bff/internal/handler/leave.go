@@ -1,12 +1,14 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
 
 	"hr-platform/bff/internal/client"
 	"hr-platform/bff/internal/model"
+	"hr-platform/bff/internal/repository"
 
 	"github.com/labstack/echo/v4"
 )
@@ -21,11 +23,13 @@ func frappeHTTPError(err error, fallback string) *echo.HTTPError {
 }
 
 type LeaveHandler struct {
-	frappe *client.FrappeClient
+	frappe    *client.FrappeClient
+	notifRepo *repository.NotificationRepository
+	userRepo  *repository.UserRepository
 }
 
-func NewLeaveHandler(frappe *client.FrappeClient) *LeaveHandler {
-	return &LeaveHandler{frappe: frappe}
+func NewLeaveHandler(frappe *client.FrappeClient, notifRepo *repository.NotificationRepository, userRepo *repository.UserRepository) *LeaveHandler {
+	return &LeaveHandler{frappe: frappe, notifRepo: notifRepo, userRepo: userRepo}
 }
 
 func (h *LeaveHandler) Create(c echo.Context) error {
@@ -93,7 +97,8 @@ func (h *LeaveHandler) Approve(c echo.Context) error {
 	leaveID := c.Param("id")
 
 	var req struct {
-		Status string `json:"status"` // "Approved" or "Rejected"
+		Status     string `json:"status"`      // "Approved" or "Rejected"
+		EmployeeID string `json:"employee_id"` // optional, for notification
 	}
 	if err := c.Bind(&req); err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, "invalid request body")
@@ -111,6 +116,19 @@ func (h *LeaveHandler) Approve(c echo.Context) error {
 	_, err := h.frappe.CallMethodPost("hr_core_ext.api.leave.approve_leave_application", params)
 	if err != nil {
 		return frappeHTTPError(err, "failed to update leave status")
+	}
+
+	// Send notification to the leave requester
+	if h.notifRepo != nil && req.EmployeeID != "" {
+		go func() {
+			companyID := c.Get("company_id").(string)
+			u, err := h.userRepo.GetByFrappeEmployeeID(context.Background(), companyID, req.EmployeeID)
+			if err == nil && u != nil {
+				title := "Leave " + req.Status
+				msg := "Your leave request has been " + req.Status
+				_ = h.notifRepo.CreateForUser(context.Background(), u.ID, companyID, "leave_approval", title, msg)
+			}
+		}()
 	}
 
 	return c.JSON(http.StatusOK, map[string]string{

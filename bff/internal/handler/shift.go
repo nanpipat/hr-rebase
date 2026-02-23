@@ -1,22 +1,26 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
 
 	"hr-platform/bff/internal/client"
 	"hr-platform/bff/internal/model"
+	"hr-platform/bff/internal/repository"
 
 	"github.com/labstack/echo/v4"
 )
 
 type ShiftHandler struct {
-	frappe *client.FrappeClient
+	frappe    *client.FrappeClient
+	notifRepo *repository.NotificationRepository
+	userRepo  *repository.UserRepository
 }
 
-func NewShiftHandler(frappe *client.FrappeClient) *ShiftHandler {
-	return &ShiftHandler{frappe: frappe}
+func NewShiftHandler(frappe *client.FrappeClient, notifRepo *repository.NotificationRepository, userRepo *repository.UserRepository) *ShiftHandler {
+	return &ShiftHandler{frappe: frappe, notifRepo: notifRepo, userRepo: userRepo}
 }
 
 // ListShiftTypes returns all shift types.
@@ -245,7 +249,10 @@ func (h *ShiftHandler) CreateRequest(c echo.Context) error {
 func (h *ShiftHandler) ApproveRequest(c echo.Context) error {
 	requestID := c.Param("id")
 
-	var req model.ApproveShiftRequestBody
+	var req struct {
+		Action     string `json:"action"`
+		EmployeeID string `json:"employee_id"`
+	}
 	if err := c.Bind(&req); err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, "invalid request body")
 	}
@@ -260,6 +267,23 @@ func (h *ShiftHandler) ApproveRequest(c echo.Context) error {
 	})
 	if err != nil {
 		return frappeHTTPError(err, "failed to process shift request")
+	}
+
+	// Send notification to the shift request owner
+	if h.notifRepo != nil && req.EmployeeID != "" {
+		go func() {
+			companyID := c.Get("company_id").(string)
+			u, err := h.userRepo.GetByFrappeEmployeeID(context.Background(), companyID, req.EmployeeID)
+			if err == nil && u != nil {
+				status := "approved"
+				if req.Action == "reject" {
+					status = "rejected"
+				}
+				title := "Shift Request " + status
+				msg := "Your shift change request has been " + status
+				_ = h.notifRepo.CreateForUser(context.Background(), u.ID, companyID, "shift_approval", title, msg)
+			}
+		}()
 	}
 
 	return c.JSON(http.StatusOK, map[string]interface{}{

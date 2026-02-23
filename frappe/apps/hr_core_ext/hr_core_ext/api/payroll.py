@@ -202,6 +202,9 @@ def generate_salary_slip(employee_id, month, year):
         "posting_date": end_date,
     })
     doc.insert(ignore_permissions=True)
+
+    # Apply OT/SSO/PVD/Tax components
+    _apply_payroll_components(doc, month, year)
     frappe.db.commit()
 
     return {
@@ -286,6 +289,9 @@ def process_payroll(month, year, company=None):
                 "posting_date": end_date,
             })
             doc.insert(ignore_permissions=True)
+
+            # Apply OT/SSO/PVD/Tax components
+            _apply_payroll_components(doc, month, year)
             created.append({
                 "name": doc.name,
                 "employee": a.employee,
@@ -365,3 +371,77 @@ def submit_payroll(month, year, company=None):
         "submitted": submitted,
         "errors": errors,
     }
+
+
+def _apply_payroll_components(doc, month, year):
+    """Apply OT earning and SSO/PVD/Tax deductions to a salary slip.
+
+    Order:
+    1. Calculate OT → add/update "Overtime" earning
+    2. Calculate SSO → set "Social Security" deduction
+    3. Calculate PVD → set "Provident Fund" deduction
+    4. Calculate Tax (after knowing gross + all deductions) → set "Personal Income Tax" deduction
+    5. Save + recalculate
+    """
+    employee_id = doc.employee
+
+    # 1. Overtime earning
+    try:
+        from hr_core_ext.api.overtime import calculate_ot_pay
+        ot = calculate_ot_pay(employee_id, month, year)
+        ot_amount = float(ot.get("total_amount", 0))
+        if ot_amount > 0:
+            _set_salary_detail(doc, "earnings", "Overtime", ot_amount)
+    except Exception:
+        pass
+
+    # 2. Social Security deduction
+    try:
+        from hr_core_ext.api.social_security import calculate_sso_contribution
+        sso = calculate_sso_contribution(employee_id, month, year)
+        sso_amount = float(sso.get("employee_contribution", 0))
+        if sso_amount > 0:
+            _set_salary_detail(doc, "deductions", "Social Security", sso_amount)
+    except Exception:
+        pass
+
+    # 3. Provident Fund deduction
+    try:
+        from hr_core_ext.api.provident_fund import calculate_pvd_contribution
+        pvd = calculate_pvd_contribution(employee_id, month, year)
+        pvd_amount = float(pvd.get("employee_contribution", 0))
+        if pvd_amount > 0:
+            _set_salary_detail(doc, "deductions", "Provident Fund", pvd_amount)
+    except Exception:
+        pass
+
+    # 4. Tax (calculated after all other components)
+    try:
+        from hr_core_ext.api.tax import calculate_monthly_withholding
+        tax = calculate_monthly_withholding(employee_id, month, year)
+        tax_amount = float(tax.get("monthly_withholding", 0))
+        if tax_amount > 0:
+            _set_salary_detail(doc, "deductions", "Personal Income Tax", tax_amount)
+    except Exception:
+        pass
+
+    # 5. Save to recalculate totals
+    doc.save(ignore_permissions=True)
+
+
+def _set_salary_detail(doc, detail_type, component_name, amount):
+    """Set or update a salary component amount on a salary slip."""
+    details = doc.earnings if detail_type == "earnings" else doc.deductions
+
+    # Try to find existing component
+    for detail in details:
+        if detail.salary_component == component_name:
+            detail.amount = amount
+            detail.default_amount = amount
+            return
+
+    # Add new component row
+    row = doc.append(detail_type, {})
+    row.salary_component = component_name
+    row.amount = amount
+    row.default_amount = amount

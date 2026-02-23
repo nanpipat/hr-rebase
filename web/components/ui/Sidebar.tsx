@@ -6,6 +6,7 @@ import { useAuth } from "@/lib/auth-context";
 import { getMenuForRole } from "@/lib/role-menu";
 import { useTranslations } from "@/lib/i18n";
 import LocaleSwitcher from "@/components/ui/LocaleSwitcher";
+import NotificationBell from "@/components/ui/NotificationBell";
 
 export default function Sidebar() {
   const pathname = usePathname();
@@ -16,11 +17,14 @@ export default function Sidebar() {
 
   return (
     <aside className="w-64 bg-white border-r border-gray-200 min-h-screen p-4 flex flex-col">
-      <div className="mb-8">
-        <h2 className="text-xl font-bold text-gray-800">{t("common.appName")}</h2>
-        {user && (
-          <p className="text-xs text-gray-400 mt-1 truncate">{user.company_name}</p>
-        )}
+      <div className="mb-8 flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-bold text-gray-800">{t("common.appName")}</h2>
+          {user && (
+            <p className="text-xs text-gray-400 mt-1 truncate">{user.company_name}</p>
+          )}
+        </div>
+        {user && <NotificationBell />}
       </div>
       <nav className="space-y-1 flex-1">
         {menuItems.map((item) => {

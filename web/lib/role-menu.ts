@@ -11,7 +11,12 @@ export const menuItems: MenuItem[] = [
   { href: "/leave", labelKey: "sidebar.leave", roles: ["admin", "hr", "manager", "employee"] },
   { href: "/attendance", labelKey: "sidebar.attendance", roles: ["admin", "hr", "manager", "employee"] },
   { href: "/shifts", labelKey: "sidebar.shifts", roles: ["admin", "hr", "manager", "employee"] },
+  { href: "/overtime", labelKey: "sidebar.overtime", roles: ["admin", "hr", "manager", "employee"] },
   { href: "/payroll", labelKey: "sidebar.payroll", roles: ["admin", "hr", "manager", "employee"] },
+  { href: "/benefits", labelKey: "sidebar.benefits", roles: ["admin", "hr", "manager", "employee"] },
+  { href: "/tax", labelKey: "sidebar.tax", roles: ["admin", "hr", "manager", "employee"] },
+  { href: "/reports", labelKey: "sidebar.reports", roles: ["admin", "hr"] },
+  { href: "/orgchart", labelKey: "sidebar.orgchart", roles: ["admin", "hr", "manager", "employee"] },
   { href: "/profile", labelKey: "sidebar.profile", roles: ["admin", "hr", "manager", "employee"] },
   { href: "/settings", labelKey: "sidebar.settings", roles: ["admin"] },
 ];

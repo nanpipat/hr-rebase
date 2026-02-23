@@ -38,6 +38,7 @@ func main() {
 	userRepo := repository.NewUserRepository(db)
 	inviteRepo := repository.NewInviteRepository(db)
 	auditRepo := repository.NewAuditRepository(db)
+	notifRepo := repository.NewNotificationRepository(db)
 
 	// --- Clients ---
 	frappeClient := client.NewFrappeClient(cfg.FrappeURL, cfg.FrappeAPIKey, cfg.FrappeAPISecret)
@@ -47,10 +48,17 @@ func main() {
 	inviteHandler := handler.NewInviteHandler(inviteRepo, userRepo, companyRepo, auditRepo, cfg)
 	userHandler := handler.NewUserHandler(userRepo, auditRepo)
 	employeeHandler := handler.NewEmployeeHandler(frappeClient, companyRepo)
-	leaveHandler := handler.NewLeaveHandler(frappeClient)
+	leaveHandler := handler.NewLeaveHandler(frappeClient, notifRepo, userRepo)
 	attendanceHandler := handler.NewAttendanceHandler(frappeClient)
 	payrollHandler := handler.NewPayrollHandler(frappeClient)
-	shiftHandler := handler.NewShiftHandler(frappeClient)
+	shiftHandler := handler.NewShiftHandler(frappeClient, notifRepo, userRepo)
+	ssoHandler := handler.NewSocialSecurityHandler(frappeClient)
+	pvdHandler := handler.NewProvidentFundHandler(frappeClient)
+	overtimeHandler := handler.NewOvertimeHandler(frappeClient, notifRepo, userRepo)
+	taxHandler := handler.NewTaxHandler(frappeClient)
+	notifHandler := handler.NewNotificationHandler(notifRepo)
+	reportsHandler := handler.NewReportsHandler(frappeClient)
+	orgchartHandler := handler.NewOrgChartHandler(frappeClient)
 
 	// --- Echo ---
 	e := echo.New()
@@ -118,11 +126,41 @@ func main() {
 	api.GET("/shifts/requests", shiftHandler.ListRequests)
 	api.POST("/shifts/requests", shiftHandler.CreateRequest)
 
+	// Overtime routes (all roles, self-filtered in handler)
+	api.POST("/overtime", overtimeHandler.Create)
+	api.GET("/overtime", overtimeHandler.List)
+	api.DELETE("/overtime/:id", overtimeHandler.Cancel)
+
+	// Tax routes (all roles, self-filtered in handler)
+	api.GET("/tax/slabs", taxHandler.GetSlabs)
+	api.GET("/tax/employees/:id/deductions", taxHandler.GetEmployeeDeductions)
+	api.PUT("/tax/employees/:id/deductions", taxHandler.UpdateEmployeeDeductions)
+	api.GET("/tax/employees/:id/summary", taxHandler.GetEmployeeSummary)
+
+	// SSO routes (all roles can view own)
+	api.GET("/sso/config", ssoHandler.GetConfig)
+	api.GET("/sso/employees/:id", ssoHandler.GetEmployeeSSO)
+
+	// PVD routes (all roles can view own)
+	api.GET("/pvd/config", pvdHandler.GetConfig)
+	api.GET("/pvd/employees/:id", pvdHandler.GetEmployee)
+
+	// Notification routes (all roles)
+	api.GET("/notifications", notifHandler.List)
+	api.GET("/notifications/count", notifHandler.Count)
+	api.PUT("/notifications/:id/read", notifHandler.MarkRead)
+	api.PUT("/notifications/read-all", notifHandler.MarkAllRead)
+
+	// Org chart routes (all roles)
+	api.GET("/orgchart/tree", orgchartHandler.GetTree)
+	api.GET("/orgchart/departments", orgchartHandler.GetDepartments)
+
 	// Admin/HR/Manager routes
 	api.PUT("/leaves/:id/approve", leaveHandler.Approve, middleware.RequireRole(model.RoleAdmin, model.RoleHR, model.RoleManager))
 	api.GET("/attendance", attendanceHandler.List, middleware.RequireRole(model.RoleAdmin, model.RoleHR, model.RoleManager))
 	api.PUT("/attendance/requests/:id/approve", attendanceHandler.ApproveRequest, middleware.RequireRole(model.RoleAdmin, model.RoleHR, model.RoleManager))
 	api.PUT("/shifts/requests/:id/approve", shiftHandler.ApproveRequest, middleware.RequireRole(model.RoleAdmin, model.RoleHR, model.RoleManager))
+	api.PUT("/overtime/:id/approve", overtimeHandler.Approve, middleware.RequireRole(model.RoleAdmin, model.RoleHR, model.RoleManager))
 
 	// Admin/HR only routes
 	admin := api.Group("", middleware.RequireAdminOrHR())
@@ -149,6 +187,34 @@ func main() {
 	admin.POST("/shifts/assignments", shiftHandler.AssignShift)
 	admin.DELETE("/shifts/assignments/:id", shiftHandler.UnassignShift)
 	admin.POST("/shifts/auto-attendance", shiftHandler.ProcessAutoAttendance)
+
+	// SSO admin routes
+	admin.PUT("/sso/config", ssoHandler.UpdateConfig)
+	admin.PUT("/sso/employees/:id", ssoHandler.UpdateEmployeeSSO)
+	admin.GET("/sso/report", ssoHandler.GetReport)
+
+	// PVD admin routes
+	admin.PUT("/pvd/config", pvdHandler.UpdateConfig)
+	admin.POST("/pvd/employees/:id", pvdHandler.EnrollEmployee)
+	admin.PUT("/pvd/employees/:id", pvdHandler.UpdateEmployee)
+	admin.DELETE("/pvd/employees/:id", pvdHandler.UnenrollEmployee)
+	admin.GET("/pvd/report", pvdHandler.GetReport)
+
+	// OT admin routes
+	admin.GET("/overtime/config", overtimeHandler.GetConfig)
+	admin.PUT("/overtime/config", overtimeHandler.UpdateConfig)
+
+	// Tax admin routes
+	admin.GET("/tax/pnd1", taxHandler.GetPND1)
+	admin.GET("/tax/withholding-cert/:id", taxHandler.GetWithholdingCert)
+
+	// Reports routes (admin/HR only)
+	admin.GET("/reports/employees", reportsHandler.EmployeeSummary)
+	admin.GET("/reports/attendance", reportsHandler.AttendanceReport)
+	admin.GET("/reports/leave", reportsHandler.LeaveReport)
+	admin.GET("/reports/payroll", reportsHandler.PayrollReport)
+	admin.GET("/reports/tax", reportsHandler.TaxReport)
+	admin.GET("/reports/export", reportsHandler.ExportCSV)
 
 	addr := fmt.Sprintf(":%s", cfg.Port)
 	log.Printf("BFF server starting on %s", addr)

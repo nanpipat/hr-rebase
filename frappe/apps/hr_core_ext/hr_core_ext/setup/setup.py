@@ -12,6 +12,8 @@ def run_setup():
     setup_holiday_list()
     setup_payroll()
     setup_shift_types()
+    setup_custom_fields()
+    setup_default_settings()
     frappe.db.commit()
     print("Initial setup completed successfully.")
 
@@ -196,10 +198,12 @@ def setup_payroll(company=None):
         {"name": "Basic Salary", "description": "Base monthly salary"},
         {"name": "Housing Allowance", "description": "Monthly housing allowance"},
         {"name": "Transportation Allowance", "description": "Monthly transportation allowance"},
+        {"name": "Overtime", "description": "Overtime pay based on Thai labour law rates"},
     ]
     deductions = [
-        {"name": "Social Security", "description": "Thai SSO contribution 5 percent, cap 875 THB per month"},
+        {"name": "Social Security", "description": "Thai SSO contribution 5 percent, cap 750 THB per month"},
         {"name": "Personal Income Tax", "description": "Thai PIT monthly withholding"},
+        {"name": "Provident Fund", "description": "Provident fund employee contribution"},
     ]
 
     for comp in earnings:
@@ -283,6 +287,7 @@ def setup_payroll(company=None):
                     {"salary_component": "Basic Salary", "formula": "base", "amount_based_on_formula": 1},
                     {"salary_component": "Housing Allowance", "amount": 0},
                     {"salary_component": "Transportation Allowance", "amount": 0},
+                    {"salary_component": "Overtime", "amount": 0},
                 ],
                 "deductions": [
                     {
@@ -291,6 +296,10 @@ def setup_payroll(company=None):
                     },
                     {
                         "salary_component": "Personal Income Tax",
+                        "amount": 0,
+                    },
+                    {
+                        "salary_component": "Provident Fund",
                         "amount": 0,
                     },
                 ],
@@ -344,3 +353,98 @@ def setup_shift_types():
             print(f"Shift Type '{st['name']}' created ({st['start_time']} - {st['end_time']}).")
         except Exception as e:
             print(f"Shift Type '{st['name']}' setup skipped: {e}")
+
+
+def setup_custom_fields():
+    """Create custom fields on Employee for SSO, PVD, and Tax."""
+    custom_fields = {
+        "Employee": [
+            # SSO
+            {"fieldname": "sso_number", "label": "SSO Number", "fieldtype": "Data",
+             "insert_after": "status", "description": "Social Security number"},
+            # PVD
+            {"fieldname": "pvd_enrolled", "label": "PVD Enrolled", "fieldtype": "Check",
+             "insert_after": "sso_number", "default": "0"},
+            {"fieldname": "pvd_employee_rate", "label": "PVD Employee Rate (%)", "fieldtype": "Float",
+             "insert_after": "pvd_enrolled", "default": "0"},
+            {"fieldname": "pvd_employer_rate", "label": "PVD Employer Rate (%)", "fieldtype": "Float",
+             "insert_after": "pvd_employee_rate", "default": "0"},
+            {"fieldname": "pvd_enrollment_date", "label": "PVD Enrollment Date", "fieldtype": "Date",
+             "insert_after": "pvd_employer_rate"},
+            # Tax
+            {"fieldname": "tax_id", "label": "Tax ID", "fieldtype": "Data",
+             "insert_after": "pvd_enrollment_date", "description": "Personal tax identification number"},
+            {"fieldname": "personal_allowance", "label": "Personal Allowance", "fieldtype": "Currency",
+             "insert_after": "tax_id", "default": "60000"},
+            {"fieldname": "spouse_allowance", "label": "Spouse Allowance", "fieldtype": "Currency",
+             "insert_after": "personal_allowance", "default": "0"},
+            {"fieldname": "children_count", "label": "Children Count", "fieldtype": "Int",
+             "insert_after": "spouse_allowance", "default": "0"},
+            {"fieldname": "life_insurance_premium", "label": "Life Insurance Premium", "fieldtype": "Currency",
+             "insert_after": "children_count", "default": "0"},
+            {"fieldname": "health_insurance_premium", "label": "Health Insurance Premium", "fieldtype": "Currency",
+             "insert_after": "life_insurance_premium", "default": "0"},
+            {"fieldname": "housing_loan_interest", "label": "Housing Loan Interest", "fieldtype": "Currency",
+             "insert_after": "health_insurance_premium", "default": "0"},
+            {"fieldname": "donation_deduction", "label": "Donation Deduction", "fieldtype": "Currency",
+             "insert_after": "housing_loan_interest", "default": "0"},
+        ]
+    }
+
+    for doctype, fields in custom_fields.items():
+        for field_def in fields:
+            field_name = field_def["fieldname"]
+            full_name = f"{doctype}-{field_name}"
+            if frappe.db.exists("Custom Field", full_name):
+                print(f"Custom field '{full_name}' already exists.")
+                continue
+            try:
+                cf = frappe.get_doc({
+                    "doctype": "Custom Field",
+                    "dt": doctype,
+                    **field_def,
+                })
+                cf.insert(ignore_permissions=True)
+                print(f"Custom field '{full_name}' created.")
+            except Exception as e:
+                print(f"Custom field '{full_name}' skipped: {e}")
+
+
+def setup_default_settings():
+    """Initialize default settings for SSO, PVD, and OT in Singles table."""
+    settings_defaults = {
+        "SSO Settings": {
+            "rate": "5",
+            "max_salary": "15000",
+            "max_contribution": "750",
+        },
+        "PVD Settings": {
+            "min_rate": "3",
+            "max_rate": "15",
+            "default_employee_rate": "5",
+            "default_employer_rate": "5",
+        },
+        "OT Settings": {
+            "weekday_ot_rate": "1.5",
+            "holiday_work_monthly": "1",
+            "holiday_work_daily": "2",
+            "holiday_ot_rate": "3",
+            "standard_hours_per_day": "8",
+            "standard_working_days": "26",
+        },
+    }
+
+    for doctype, fields in settings_defaults.items():
+        for field, value in fields.items():
+            existing = frappe.db.sql(
+                "SELECT value FROM tabSingles WHERE doctype=%s AND field=%s",
+                (doctype, field), as_dict=True
+            )
+            if not existing:
+                frappe.db.sql(
+                    "INSERT INTO tabSingles (doctype, field, value) VALUES (%s, %s, %s)",
+                    (doctype, field, value)
+                )
+                print(f"Setting '{doctype}.{field}' = {value}")
+            else:
+                print(f"Setting '{doctype}.{field}' already exists.")

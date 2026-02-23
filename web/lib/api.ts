@@ -503,3 +503,187 @@ export async function processAutoAttendance(data: { date?: string; company?: str
     };
   }>("/shifts/auto-attendance", { method: "POST", body: data });
 }
+
+// Overtime
+export async function getOvertimeRequests(params?: { status?: string; month?: string; year?: string }) {
+  const sp = new URLSearchParams();
+  if (params?.status) sp.set("status", params.status);
+  if (params?.month) sp.set("month", params.month);
+  if (params?.year) sp.set("year", params.year);
+  const query = sp.toString() ? `?${sp.toString()}` : "";
+  return api<{ data: Array<Record<string, unknown>> }>(`/overtime${query}`);
+}
+
+export async function createOvertimeRequest(data: {
+  ot_date: string;
+  ot_type: string;
+  hours: number;
+  reason?: string;
+}) {
+  return api<{ data: Record<string, unknown> }>("/overtime", { method: "POST", body: data });
+}
+
+export async function approveOvertimeRequest(id: string, action: "approve" | "reject") {
+  return api<{ data: Record<string, unknown> }>(`/overtime/${id}/approve`, {
+    method: "PUT",
+    body: { action },
+  });
+}
+
+export async function cancelOvertimeRequest(id: string) {
+  return api<{ data: Record<string, unknown> }>(`/overtime/${id}`, { method: "DELETE" });
+}
+
+export async function getOvertimeConfig() {
+  return api<{ data: Record<string, unknown> }>("/overtime/config");
+}
+
+export async function updateOvertimeConfig(data: Record<string, unknown>) {
+  return api<{ data: Record<string, unknown> }>("/overtime/config", { method: "PUT", body: data });
+}
+
+// Social Security
+export async function getSSOConfig() {
+  return api<{ data: Record<string, unknown> }>("/sso/config");
+}
+
+export async function updateSSOConfig(data: Record<string, unknown>) {
+  return api<{ data: Record<string, unknown> }>("/sso/config", { method: "PUT", body: data });
+}
+
+export async function getSSOReport(month: number, year: number) {
+  return api<{ data: Record<string, unknown> }>(`/sso/report?month=${month}&year=${year}`);
+}
+
+export async function getEmployeeSSO(id: string) {
+  return api<{ data: Record<string, unknown> }>(`/sso/employees/${id}`);
+}
+
+export async function updateEmployeeSSO(id: string, ssoNumber: string) {
+  return api<{ data: Record<string, unknown> }>(`/sso/employees/${id}`, {
+    method: "PUT",
+    body: { sso_number: ssoNumber },
+  });
+}
+
+// Provident Fund
+export async function getPVDConfig() {
+  return api<{ data: Record<string, unknown> }>("/pvd/config");
+}
+
+export async function updatePVDConfig(data: Record<string, unknown>) {
+  return api<{ data: Record<string, unknown> }>("/pvd/config", { method: "PUT", body: data });
+}
+
+export async function getEmployeePVD(id: string) {
+  return api<{ data: Record<string, unknown> }>(`/pvd/employees/${id}`);
+}
+
+export async function enrollEmployeePVD(id: string, data: { employee_rate?: number; employer_rate?: number }) {
+  return api<{ data: Record<string, unknown> }>(`/pvd/employees/${id}`, { method: "POST", body: data });
+}
+
+export async function updateEmployeePVD(id: string, data: { employee_rate?: number; employer_rate?: number }) {
+  return api<{ data: Record<string, unknown> }>(`/pvd/employees/${id}`, { method: "PUT", body: data });
+}
+
+export async function unenrollEmployeePVD(id: string) {
+  return api<{ data: Record<string, unknown> }>(`/pvd/employees/${id}`, { method: "DELETE" });
+}
+
+export async function getPVDReport(month: number, year: number) {
+  return api<{ data: Record<string, unknown> }>(`/pvd/report?month=${month}&year=${year}`);
+}
+
+// Tax
+export async function getTaxSlabs() {
+  return api<{ data: Record<string, unknown> }>("/tax/slabs");
+}
+
+export async function getEmployeeTaxDeductions(id: string) {
+  return api<{ data: Record<string, unknown> }>(`/tax/employees/${id}/deductions`);
+}
+
+export async function updateEmployeeTaxDeductions(id: string, data: Record<string, unknown>) {
+  return api<{ data: Record<string, unknown> }>(`/tax/employees/${id}/deductions`, {
+    method: "PUT",
+    body: data,
+  });
+}
+
+export async function getEmployeeTaxSummary(id: string, year: number) {
+  return api<{ data: Record<string, unknown> }>(`/tax/employees/${id}/summary?year=${year}`);
+}
+
+export async function getPND1(month: number, year: number) {
+  return api<{ data: Record<string, unknown> }>(`/tax/pnd1?month=${month}&year=${year}`);
+}
+
+export async function getWithholdingCert(id: string, year: number) {
+  return api<{ data: Record<string, unknown> }>(`/tax/withholding-cert/${id}?year=${year}`);
+}
+
+// Notifications
+export async function getNotifications(limit?: number, offset?: number) {
+  const sp = new URLSearchParams();
+  if (limit) sp.set("limit", String(limit));
+  if (offset) sp.set("offset", String(offset));
+  const query = sp.toString() ? `?${sp.toString()}` : "";
+  return api<{ data: Array<Record<string, unknown>> }>(`/notifications${query}`);
+}
+
+export async function getNotificationCount() {
+  return api<{ count: number }>("/notifications/count");
+}
+
+export async function markNotificationRead(id: number) {
+  return api<{ message: string }>(`/notifications/${id}/read`, { method: "PUT" });
+}
+
+export async function markAllNotificationsRead() {
+  return api<{ message: string }>("/notifications/read-all", { method: "PUT" });
+}
+
+// Reports
+export async function getEmployeeSummaryReport(company?: string) {
+  const sp = new URLSearchParams();
+  if (company) sp.set("company", company);
+  const query = sp.toString() ? `?${sp.toString()}` : "";
+  return api<{ data: Record<string, unknown> }>(`/reports/employees${query}`);
+}
+
+export async function getAttendanceReport(month: number, year: number) {
+  return api<{ data: Record<string, unknown> }>(`/reports/attendance?month=${month}&year=${year}`);
+}
+
+export async function getLeaveReport(year: number) {
+  return api<{ data: Record<string, unknown> }>(`/reports/leave?year=${year}`);
+}
+
+export async function getPayrollReport(year: number, month?: number) {
+  const sp = new URLSearchParams({ year: String(year) });
+  if (month) sp.set("month", String(month));
+  return api<{ data: Record<string, unknown> }>(`/reports/payroll?${sp.toString()}`);
+}
+
+export async function getTaxReport(year: number, month?: number) {
+  const sp = new URLSearchParams({ year: String(year) });
+  if (month) sp.set("month", String(month));
+  return api<{ data: Record<string, unknown> }>(`/reports/tax?${sp.toString()}`);
+}
+
+export async function exportReportCSV(type: string, year?: number, month?: number) {
+  const sp = new URLSearchParams({ type });
+  if (year) sp.set("year", String(year));
+  if (month) sp.set("month", String(month));
+  return api<{ data: { headers: string[]; rows: unknown[][] } }>(`/reports/export?${sp.toString()}`);
+}
+
+// Org Chart
+export async function getOrgTree() {
+  return api<{ data: { tree: Array<Record<string, unknown>>; total_employees: number } }>("/orgchart/tree");
+}
+
+export async function getDepartmentTree() {
+  return api<{ data: { departments: Array<Record<string, unknown>>; total_departments: number } }>("/orgchart/departments");
+}

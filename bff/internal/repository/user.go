@@ -68,6 +68,15 @@ func (r *UserRepository) UpdateLastLogin(ctx context.Context, id string) error {
 	return err
 }
 
+func (r *UserRepository) GetByFrappeEmployeeID(ctx context.Context, companyID, frappeEmployeeID string) (*model.User, error) {
+	var u model.User
+	err := r.db.GetContext(ctx, &u, `SELECT * FROM users WHERE company_id = $1 AND frappe_employee_id = $2`, companyID, frappeEmployeeID)
+	if err != nil {
+		return nil, err
+	}
+	return &u, nil
+}
+
 func (r *UserRepository) LinkEmployee(ctx context.Context, id string, frappeEmployeeID string) error {
 	_, err := r.db.ExecContext(ctx,
 		`UPDATE users SET frappe_employee_id = $1, updated_at = NOW() WHERE id = $2`,
