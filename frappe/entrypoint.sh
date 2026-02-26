@@ -5,7 +5,23 @@ SITE_NAME="${FRAPPE_SITE_NAME:-hr.localhost}"
 ADMIN_PASSWORD="${FRAPPE_ADMIN_PASSWORD:-admin}"
 DB_ROOT_PASSWORD="${MARIADB_ROOT_PASSWORD:-frappe_root_pw}"
 MARIADB_HOST="${MARIADB_HOST:-mariadb}"
-REDIS_HOST="${REDIS_HOST:-redis}"
+
+# Support full REDIS_URL (Railway style) or plain REDIS_HOST
+if [ -n "${REDIS_URL}" ]; then
+    # Extract host from REDIS_URL e.g. redis://:password@host:port
+    REDIS_PING_CMD="redis-cli -u ${REDIS_URL} ping"
+    REDIS_CACHE_URL="${REDIS_URL}/0"
+    REDIS_QUEUE_URL="${REDIS_URL}/1"
+    REDIS_SOCKETIO_URL="${REDIS_URL}/2"
+    REDIS_DISPLAY="${REDIS_URL%%@*}@..."  # hide password in logs
+else
+    REDIS_HOST="${REDIS_HOST:-redis}"
+    REDIS_PING_CMD="redis-cli -h ${REDIS_HOST} ping"
+    REDIS_CACHE_URL="redis://${REDIS_HOST}:6379/0"
+    REDIS_QUEUE_URL="redis://${REDIS_HOST}:6379/1"
+    REDIS_SOCKETIO_URL="redis://${REDIS_HOST}:6379/2"
+    REDIS_DISPLAY="${REDIS_HOST}"
+fi
 
 cd /home/frappe/hr-bench
 
@@ -17,11 +33,33 @@ done
 echo "MariaDB is ready."
 
 # Wait for Redis to be ready
-echo "Waiting for Redis at ${REDIS_HOST}..."
-while ! redis-cli -h "${REDIS_HOST}" ping 2>/dev/null | grep -q PONG; do
+echo "Waiting for Redis at ${REDIS_DISPLAY}..."
+for i in $(seq 1 60); do
+    if ${REDIS_PING_CMD} 2>/dev/null | grep -q PONG; then
+        echo "Redis is ready."
+        break
+    fi
+    if [ "$i" -eq 60 ]; then
+        echo "ERROR: Redis not reachable after 120s, continuing anyway..."
+    fi
     sleep 2
 done
-echo "Redis is ready."
+
+# Write dynamic common_site_config.json
+echo "Writing common_site_config.json..."
+cat > sites/common_site_config.json <<EOF
+{
+  "db_host": "${MARIADB_HOST}",
+  "db_port": 3306,
+  "redis_cache": "${REDIS_CACHE_URL}",
+  "redis_queue": "${REDIS_QUEUE_URL}",
+  "redis_socketio": "${REDIS_SOCKETIO_URL}",
+  "socketio_port": 9000,
+  "webserver_port": 8000,
+  "serve_default_site": true,
+  "allow_cors": "*"
+}
+EOF
 
 # Check if site already exists
 if [ ! -f "sites/${SITE_NAME}/site_config.json" ]; then
