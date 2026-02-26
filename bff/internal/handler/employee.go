@@ -225,7 +225,7 @@ func (h *EmployeeHandler) Create(c echo.Context) error {
 		companyName = company.Name
 	}
 
-	employeeID, err := h.frappe.CreateEmployee(req.EmployeeName, companyName)
+	employeeID, err := h.frappe.CreateEmployee(req.EmployeeName, companyName, req.Department, req.Designation)
 	if err != nil {
 		return frappeHTTPError(err, "failed to create employee in Frappe")
 	}

@@ -191,10 +191,16 @@ func (c *FrappeClient) CreateCompany(name, abbr, country string) (string, error)
 }
 
 // CreateEmployee creates a new employee in Frappe. Returns the employee_id.
-func (c *FrappeClient) CreateEmployee(employeeName, company string) (string, error) {
+func (c *FrappeClient) CreateEmployee(employeeName, company, department, designation string) (string, error) {
 	payload := map[string]string{
 		"employee_name": employeeName,
 		"company":       company,
+	}
+	if department != "" {
+		payload["department"] = department
+	}
+	if designation != "" {
+		payload["designation"] = designation
 	}
 
 	result, err := c.CallMethodPost("hr_core_ext.api.company.create_employee", payload)

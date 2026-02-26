@@ -1,23 +1,37 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { createEmployee } from "@/lib/api";
+import { createEmployee, getDepartments, type Department } from "@/lib/api";
 
 export default function NewEmployeePage() {
   const router = useRouter();
-  const [name, setName] = useState("");
+  const [form, setForm] = useState({
+    employee_name: "",
+    department: "",
+    designation: "",
+  });
+  const [departments, setDepartments] = useState<Department[]>([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    getDepartments()
+      .then((res) => setDepartments(res.data?.departments || []))
+      .catch(() => {}); // non-critical
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
     setLoading(true);
-
     try {
-      await createEmployee({ employee_name: name });
-      router.push("/employees");
+      const { data } = await createEmployee({
+        employee_name: form.employee_name,
+        department: form.department || undefined,
+        designation: form.designation || undefined,
+      });
+      router.push(`/employees/${data.employee_id}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create employee");
     } finally {
@@ -35,20 +49,50 @@ export default function NewEmployeePage() {
         )}
 
         <div>
-          <label htmlFor="employee_name" className="block text-sm font-medium text-gray-700 mb-1">
-            Employee Name
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Employee Name *
           </label>
           <input
-            id="employee_name"
             type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            value={form.employee_name}
+            onChange={(e) => setForm({ ...form, employee_name: e.target.value })}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
             required
           />
         </div>
 
-        <div className="flex gap-3">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Department
+          </label>
+          <select
+            value={form.department}
+            onChange={(e) => setForm({ ...form, department: e.target.value })}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white"
+          >
+            <option value="">— Select Department —</option>
+            {departments.map((d) => (
+              <option key={d.name} value={d.name}>
+                {d.department_name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Designation
+          </label>
+          <input
+            type="text"
+            value={form.designation}
+            onChange={(e) => setForm({ ...form, designation: e.target.value })}
+            placeholder="e.g. Software Engineer"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+          />
+        </div>
+
+        <div className="flex gap-3 pt-2">
           <button
             type="submit"
             disabled={loading}

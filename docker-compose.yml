@@ -89,6 +89,11 @@ services:
       BFF_DATABASE_URL: ${BFF_DATABASE_URL:-postgres://bff:bff_secret@postgres:5432/bff?sslmode=disable}
       JWT_SECRET: ${JWT_SECRET}
       JWT_EXPIRY_HOURS: ${JWT_EXPIRY_HOURS:-24}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-claude-sonnet-4-20250514}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o}
+      LLM_PROVIDER: ${LLM_PROVIDER:-anthropic}
     depends_on:
       frappe:
         condition: service_started

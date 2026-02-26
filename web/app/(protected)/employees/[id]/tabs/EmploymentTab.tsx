@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { updateEmployee } from "@/lib/api";
+import { useEffect, useState } from "react";
+import { updateEmployee, getDepartments, type Department } from "@/lib/api";
 import { useToast } from "@/components/ui/Toast";
 
 interface Props {
@@ -14,6 +14,7 @@ export default function EmploymentTab({ employee, canEdit, onUpdate }: Props) {
   const { toast } = useToast();
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [departments, setDepartments] = useState<Department[]>([]);
   const [form, setForm] = useState({
     department: String(employee.department || ""),
     designation: String(employee.designation || ""),
@@ -22,6 +23,14 @@ export default function EmploymentTab({ employee, canEdit, onUpdate }: Props) {
     reports_to: String(employee.reports_to || ""),
     status: String(employee.status || ""),
   });
+
+  useEffect(() => {
+    if (editing) {
+      getDepartments()
+        .then((res) => setDepartments(res.data?.departments || []))
+        .catch(() => {});
+    }
+  }, [editing]);
 
   async function handleSave() {
     setSaving(true);
@@ -37,8 +46,7 @@ export default function EmploymentTab({ employee, canEdit, onUpdate }: Props) {
     }
   }
 
-  const fields = [
-    { key: "department", label: "Department" },
+  const textFields = [
     { key: "designation", label: "Designation" },
     { key: "employment_type", label: "Employment Type" },
     { key: "branch", label: "Branch" },
@@ -74,7 +82,31 @@ export default function EmploymentTab({ employee, canEdit, onUpdate }: Props) {
           <dd className="mt-1 text-sm text-gray-900">{String(employee.date_of_joining || "-")}</dd>
         </div>
 
-        {fields.map((f) => (
+        {/* Department — dropdown when editing */}
+        <div>
+          <dt className="text-sm font-medium text-gray-500">Department</dt>
+          {editing ? (
+            <select
+              value={form.department}
+              onChange={(e) => setForm({ ...form, department: e.target.value })}
+              className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md text-sm bg-white"
+            >
+              <option value="">— Select Department —</option>
+              {departments.map((d) => (
+                <option key={d.name} value={d.name}>
+                  {d.department_name}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <dd className="mt-1 text-sm text-gray-900">
+              {String(employee.department || "-")}
+            </dd>
+          )}
+        </div>
+
+        {/* Other text fields */}
+        {textFields.map((f) => (
           <div key={f.key}>
             <dt className="text-sm font-medium text-gray-500">{f.label}</dt>
             {editing ? (

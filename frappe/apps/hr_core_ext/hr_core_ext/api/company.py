@@ -20,7 +20,7 @@ def create_company(company_name, abbr, country="Thailand"):
 
 
 @frappe.whitelist(allow_guest=False)
-def create_employee(employee_name, company, gender=None, date_of_birth=None, date_of_joining=None, **kwargs):
+def create_employee(employee_name, company, gender=None, date_of_birth=None, date_of_joining=None, department=None, designation=None, **kwargs):
     """Create a new employee in Frappe."""
     # Split employee_name into first_name (required by Frappe Employee)
     name_parts = employee_name.strip().split(" ", 1)
@@ -49,6 +49,10 @@ def create_employee(employee_name, company, gender=None, date_of_birth=None, dat
         "date_of_birth": date_of_birth or "1990-01-01",
         "date_of_joining": date_of_joining or frappe.utils.nowdate(),
     }
+    if department:
+        employee_data["department"] = department
+    if designation:
+        employee_data["designation"] = designation
     doc = frappe.get_doc(employee_data)
     doc.insert(ignore_permissions=True)
     frappe.db.commit()

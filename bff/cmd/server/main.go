@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 	"log"
+	"os"
+	"strings"
 
 	"hr-platform/bff/internal/client"
 	"hr-platform/bff/internal/config"
@@ -59,6 +61,8 @@ func main() {
 	notifHandler := handler.NewNotificationHandler(notifRepo)
 	reportsHandler := handler.NewReportsHandler(frappeClient)
 	orgchartHandler := handler.NewOrgChartHandler(frappeClient)
+	chatHandler := handler.NewChatHandler(frappeClient, cfg)
+	departmentHandler := handler.NewDepartmentHandler(frappeClient, companyRepo)
 
 	// --- Echo ---
 	e := echo.New()
@@ -67,8 +71,16 @@ func main() {
 	// Global middleware
 	e.Use(echomw.Logger())
 	e.Use(echomw.Recover())
+	allowedOrigins := []string{"http://localhost:5009", "http://localhost", "http://localhost:3000"}
+	if extra := os.Getenv("ALLOWED_ORIGINS"); extra != "" {
+		for _, o := range strings.Split(extra, ",") {
+			if o = strings.TrimSpace(o); o != "" {
+				allowedOrigins = append(allowedOrigins, o)
+			}
+		}
+	}
 	e.Use(echomw.CORSWithConfig(echomw.CORSConfig{
-		AllowOrigins:     []string{"http://localhost:5009", "http://localhost", "http://localhost:3000"},
+		AllowOrigins:     allowedOrigins,
 		AllowCredentials: true,
 	}))
 
@@ -155,6 +167,13 @@ func main() {
 	api.GET("/orgchart/tree", orgchartHandler.GetTree)
 	api.GET("/orgchart/departments", orgchartHandler.GetDepartments)
 
+	// AI Chat route (all roles)
+	api.POST("/chat", chatHandler.Chat)
+
+	// Department routes (all roles can read)
+	api.GET("/departments", departmentHandler.List)
+	api.GET("/departments/:id", departmentHandler.Get)
+
 	// Admin/HR/Manager routes
 	api.PUT("/leaves/:id/approve", leaveHandler.Approve, middleware.RequireRole(model.RoleAdmin, model.RoleHR, model.RoleManager))
 	api.GET("/attendance", attendanceHandler.List, middleware.RequireRole(model.RoleAdmin, model.RoleHR, model.RoleManager))
@@ -207,6 +226,11 @@ func main() {
 	// Tax admin routes
 	admin.GET("/tax/pnd1", taxHandler.GetPND1)
 	admin.GET("/tax/withholding-cert/:id", taxHandler.GetWithholdingCert)
+
+	// Department write routes (admin/HR only)
+	admin.POST("/departments", departmentHandler.Create)
+	admin.PUT("/departments/:id", departmentHandler.Update)
+	admin.DELETE("/departments/:id", departmentHandler.Delete)
 
 	// Reports routes (admin/HR only)
 	admin.GET("/reports/employees", reportsHandler.EmployeeSummary)

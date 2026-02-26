@@ -440,7 +440,7 @@ function AdminDashboard() {
           title={t("departmentBreakdown")}
           action={
             <button
-              onClick={() => router.push("/employees")}
+              onClick={() => router.push("/departments")}
               className="text-sm text-blue-600 hover:text-blue-800"
             >
               {tc("viewAll")}

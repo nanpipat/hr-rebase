@@ -7,6 +7,7 @@ export interface MenuItem {
 export const menuItems: MenuItem[] = [
   { href: "/dashboard", labelKey: "sidebar.dashboard", roles: ["admin", "hr", "manager", "employee"] },
   { href: "/employees", labelKey: "sidebar.employees", roles: ["admin", "hr"] },
+  { href: "/departments", labelKey: "sidebar.departments", roles: ["admin", "hr"] },
   { href: "/users", labelKey: "sidebar.users", roles: ["admin", "hr"] },
   { href: "/leave", labelKey: "sidebar.leave", roles: ["admin", "hr", "manager", "employee"] },
   { href: "/attendance", labelKey: "sidebar.attendance", roles: ["admin", "hr", "manager", "employee"] },

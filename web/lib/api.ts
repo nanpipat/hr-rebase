@@ -85,7 +85,12 @@ export async function updateEmployee(id: string, data: Record<string, unknown>) 
   });
 }
 
-export async function createEmployee(data: { employee_name: string }) {
+export async function createEmployee(data: {
+  employee_name: string;
+  department?: string;
+  designation?: string;
+  gender?: string;
+}) {
   return api<{ data: { employee_id: string } }>("/employees", {
     method: "POST",
     body: data,
@@ -677,6 +682,71 @@ export async function exportReportCSV(type: string, year?: number, month?: numbe
   if (year) sp.set("year", String(year));
   if (month) sp.set("month", String(month));
   return api<{ data: { headers: string[]; rows: unknown[][] } }>(`/reports/export?${sp.toString()}`);
+}
+
+// Departments
+export interface Department {
+  name: string;
+  department_name: string;
+  parent_department: string;
+  company: string;
+  is_group: number;
+  employee_count: number;
+}
+
+export interface DepartmentDetail {
+  department: {
+    name: string;
+    department_name: string;
+    parent_department: string;
+    company: string;
+    is_group: number;
+  };
+  employees: Array<{
+    employee_id: string;
+    employee_name: string;
+    designation: string;
+    image: string;
+    status: string;
+  }>;
+}
+
+export async function getDepartments(company?: string) {
+  const sp = new URLSearchParams();
+  if (company) sp.set("company", company);
+  const query = sp.toString() ? `?${sp.toString()}` : "";
+  return api<{ data: { departments: Department[]; total: number } }>(`/departments${query}`);
+}
+
+export async function getDepartment(id: string) {
+  return api<{ data: DepartmentDetail }>(`/departments/${encodeURIComponent(id)}`);
+}
+
+export async function createDepartment(data: {
+  department_name: string;
+  parent_department?: string;
+  company?: string;
+}) {
+  return api<{ data: { name: string; department_name: string } }>("/departments", {
+    method: "POST",
+    body: data,
+  });
+}
+
+export async function updateDepartment(
+  id: string,
+  data: { department_name?: string; parent_department?: string }
+) {
+  return api<{ data: { name: string; department_name: string; parent_department: string } }>(
+    `/departments/${encodeURIComponent(id)}`,
+    { method: "PUT", body: data }
+  );
+}
+
+export async function deleteDepartment(id: string) {
+  return api<{ data: { message: string } }>(`/departments/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+  });
 }
 
 // Org Chart

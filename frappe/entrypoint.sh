@@ -4,19 +4,21 @@ set -e
 SITE_NAME="${FRAPPE_SITE_NAME:-hr.localhost}"
 ADMIN_PASSWORD="${FRAPPE_ADMIN_PASSWORD:-admin}"
 DB_ROOT_PASSWORD="${MARIADB_ROOT_PASSWORD:-frappe_root_pw}"
+MARIADB_HOST="${MARIADB_HOST:-mariadb}"
+REDIS_HOST="${REDIS_HOST:-redis}"
 
 cd /home/frappe/hr-bench
 
 # Wait for MariaDB to be ready
-echo "Waiting for MariaDB..."
-while ! mysqladmin ping -h mariadb -u root -p"${DB_ROOT_PASSWORD}" --silent 2>/dev/null; do
+echo "Waiting for MariaDB at ${MARIADB_HOST}..."
+while ! mysqladmin ping -h "${MARIADB_HOST}" -u root -p"${DB_ROOT_PASSWORD}" --silent 2>/dev/null; do
     sleep 2
 done
 echo "MariaDB is ready."
 
 # Wait for Redis to be ready
-echo "Waiting for Redis..."
-while ! redis-cli -h redis ping 2>/dev/null | grep -q PONG; do
+echo "Waiting for Redis at ${REDIS_HOST}..."
+while ! redis-cli -h "${REDIS_HOST}" ping 2>/dev/null | grep -q PONG; do
     sleep 2
 done
 echo "Redis is ready."
@@ -28,6 +30,7 @@ if [ ! -f "sites/${SITE_NAME}/site_config.json" ]; then
     bench new-site "${SITE_NAME}" \
         --mariadb-root-password "${DB_ROOT_PASSWORD}" \
         --admin-password "${ADMIN_PASSWORD}" \
+        --db-host "${MARIADB_HOST}" \
         --no-mariadb-socket
 
     # Install ERPNext (dependency for HRMS)

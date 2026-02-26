@@ -151,7 +151,7 @@ func (h *AuthHandler) Signup(c echo.Context) error {
 	}
 
 	// Create employee in Frappe for admin
-	employeeID, err := h.frappe.CreateEmployee(req.FullName, frappeCompanyName)
+	employeeID, err := h.frappe.CreateEmployee(req.FullName, frappeCompanyName, "", "")
 	if err == nil && employeeID != "" {
 		user.FrappeEmployeeID = &employeeID
 		_ = h.userRepo.LinkEmployee(ctx, user.ID, employeeID)
