@@ -1,5 +1,6 @@
 # Environment
 .env
+.env.droplet
 *.env.local
 
 # OS

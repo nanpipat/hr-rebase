@@ -1,0 +1,94 @@
+version: "3.8"
+
+# docker-compose สำหรับ DigitalOcean Droplet ($6 — 1GB RAM)
+# รัน: Frappe + MariaDB + Redis + Nginx เท่านั้น
+# BFF, PostgreSQL, Web (Next.js) → อยู่บน Railway
+
+services:
+  # --- Database (Frappe) ---
+  mariadb:
+    image: mariadb:10.6.18
+    restart: unless-stopped
+    mem_limit: 384m
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MARIADB_DATABASE:-frappe}
+      MYSQL_USER: ${MARIADB_USER:-frappe}
+      MYSQL_PASSWORD: ${MARIADB_PASSWORD}
+    volumes:
+      - mariadb_data:/var/lib/mysql
+      - ./frappe/mariadb.cnf:/etc/mysql/conf.d/frappe.cnf:ro
+    networks:
+      - hr_network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MARIADB_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # --- Cache & Queue (Frappe) ---
+  redis:
+    image: redis:7.2.5-alpine
+    restart: unless-stopped
+    mem_limit: 64m
+    # จำกัด memory ใน Redis เองด้วย เพื่อป้องกัน OOM
+    command: redis-server --maxmemory 48mb --maxmemory-policy allkeys-lru
+    networks:
+      - hr_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # --- Frappe HR Core ---
+  frappe:
+    build:
+      context: ./frappe
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    mem_limit: 512m
+    environment:
+      FRAPPE_SITE_NAME: ${FRAPPE_SITE_NAME:-hr.localhost}
+      FRAPPE_ADMIN_PASSWORD: ${FRAPPE_ADMIN_PASSWORD}
+      MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD}
+      DEFAULT_COMPANY_NAME: ${DEFAULT_COMPANY_NAME:-My Company}
+      DEFAULT_COMPANY_ABBR: ${DEFAULT_COMPANY_ABBR:-MC}
+      DEFAULT_COMPANY_COUNTRY: ${DEFAULT_COMPANY_COUNTRY:-Thailand}
+    volumes:
+      - frappe_sites:/home/frappe/hr-bench/sites
+      - frappe_logs:/home/frappe/hr-bench/logs
+    depends_on:
+      mariadb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - hr_network
+    # ไม่ expose port โดยตรง — ผ่าน Nginx เท่านั้น
+
+  # --- Reverse Proxy ---
+  nginx:
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile
+      args:
+        NGINX_CONF: nginx.droplet.conf   # ใช้ config ที่ route ไปหา Frappe เท่านั้น
+    restart: unless-stopped
+    mem_limit: 32m
+    ports:
+      - "80:80"      # HTTP (Frappe Admin + BFF จาก Railway เข้าได้)
+      - "8000:8000"  # Frappe direct port สำหรับ Railway BFF (ถ้าต้องการ)
+    depends_on:
+      - frappe
+    networks:
+      - hr_network
+
+volumes:
+  mariadb_data:
+  frappe_sites:
+  frappe_logs:
+
+networks:
+  hr_network:
+    driver: bridge
