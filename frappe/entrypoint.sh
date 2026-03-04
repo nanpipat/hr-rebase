@@ -84,6 +84,35 @@ if [ ! -f "sites/${SITE_NAME}/site_config.json" ]; then
         bench --site "${SITE_NAME}" execute hr_core_ext.setup.setup.run_setup
     fi
 
+    # Generate API Key for Administrator (used by BFF)
+    echo "Generating API Key for Administrator..."
+    python3 - <<PYEOF
+import frappe
+frappe.init(site="${SITE_NAME}", sites_path="/home/frappe/hr-bench/sites")
+frappe.connect()
+
+user = frappe.get_doc("User", "Administrator")
+if not user.api_key:
+    user.api_key = frappe.generate_hash(length=15)
+if not user.api_secret:
+    from frappe.utils.password import update_password
+    api_secret = frappe.generate_hash(length=15)
+    user.api_secret = api_secret
+    update_password(user.name, api_secret, doctype="User", fieldname="api_secret")
+user.save(ignore_permissions=True)
+frappe.db.commit()
+
+# บันทึก credentials ลงไฟล์ในตอน init เท่านั้น
+with open("/home/frappe/hr-bench/sites/api_credentials.txt", "w") as f:
+    f.write(f"BFF_FRAPPE_API_KEY={user.api_key}\n")
+    f.write(f"BFF_FRAPPE_API_SECRET={api_secret}\n")
+
+print(f"[API KEY READY]")
+print(f"BFF_FRAPPE_API_KEY={user.api_key}")
+print(f"BFF_FRAPPE_API_SECRET={api_secret}")
+frappe.destroy()
+PYEOF
+
     echo "Site creation complete."
 else
     echo "Site ${SITE_NAME} already exists, running migrations..."
